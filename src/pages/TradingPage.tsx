@@ -55,6 +55,10 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
   const [signals, setSignals] = useState<any[]>([]);
   const [prices, setPrices] = useState<any>({});
 
+  // Live mode states
+  const [liveMode, setLiveMode] = useState(false);
+  const [hasApiKeys, setHasApiKeys] = useState(false);
+
   // Quick Trade state
   const [coin, setCoin] = useState("BTC");
   const [direction, setDirection] = useState("LONG");
@@ -95,6 +99,15 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
         const wl = r.data.wallets || [];
         setWallets(wl);
         if (wl.length > 0 && !selectedWallet) setSelectedWallet(wl[0]);
+      })
+      .catch(() => {});
+
+    // Fetch trading config
+    axios
+      .get(`${API}/api/trading/config`)
+      .then((r) => {
+        setLiveMode(r.data.live_mode);
+        setHasApiKeys(r.data.has_api_keys);
       })
       .catch(() => {});
   }, []);
@@ -150,6 +163,20 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
         auto_trade_enabled: res.data.auto_trade_enabled,
       }));
     } catch {}
+  };
+
+  const toggleLiveMode = async () => {
+    try {
+      const nextMode = !liveMode;
+      const res = await axios.post(`${API}/api/trading/config`, { live_mode: nextMode });
+      if (res.data.success) {
+        setLiveMode(res.data.live_mode);
+        const t = await axios.get(`${API}/api/trading`);
+        setTrading(t.data);
+      }
+    } catch (e: any) {
+      alert(e.response?.data?.detail || "Lỗi cấu hình Live Mode");
+    }
   };
 
   const openTrade = async () => {
@@ -325,6 +352,17 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
               className="px-5 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-[0_0_20px_rgba(99,102,241,0.3)]"
             >
               💰 Nạp / Rút
+            </button>
+            <button
+              onClick={toggleLiveMode}
+              className={`px-6 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer ${
+                liveMode
+                  ? "bg-gradient-to-r from-red-500 to-orange-600 text-white hover:shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                  : "bg-blue-500/20 border border-blue-500/50 text-blue-400 hover:bg-blue-500 hover:text-white"
+              }`}
+              title={!hasApiKeys && !liveMode ? "Vui lòng cấu hình API Key trong .env để bật Live Trading" : ""}
+            >
+              {liveMode ? "🔥 LIVE TRADING" : "🧪 PAPER TRADING"}
             </button>
             <button
               onClick={toggleAT}

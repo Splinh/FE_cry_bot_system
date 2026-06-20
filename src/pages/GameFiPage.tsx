@@ -170,14 +170,33 @@ export default function GameFiPage({ onMenuToggle }: { onMenuToggle?: () => void
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {projects.map(p => {
                  const daysToRoi = p.daily_roi_estimate > 0 && p.nft_floor_price > 0 ? (p.nft_floor_price / p.daily_roi_estimate).toFixed(0) : "N/A";
+                 const isSelected = selectedToken?.symbol === p.symbol;
                  return (
-                  <div key={p.id} className="bg-brand-surface border border-[#1C2541] rounded-xl p-5 hover:border-brand-accent/30 transition-all group">
+                  <div
+                    key={p.id}
+                    onClick={() => setSelectedToken(isSelected ? null : p)}
+                    className={`bg-brand-surface border rounded-xl p-5 transition-all group cursor-pointer ${
+                      isSelected
+                        ? "border-brand-accent ring-2 ring-brand-accent/30 bg-brand-accent/5 shadow-[0_0_20px_rgba(243,186,47,0.08)]"
+                        : "border-[#1C2541] hover:border-brand-accent/30 hover:shadow-[0_0_15px_rgba(243,186,47,0.05)]"
+                    }`}
+                  >
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="text-xl font-bold text-white leading-tight">{p.name}</h3>
+                        <h3 className="text-xl font-bold text-white leading-tight flex items-center gap-2">
+                          {p.name}
+                          {isSelected && <span className="text-[10px] bg-brand-accent text-black font-extrabold px-1.5 py-0.5 rounded uppercase">Đang Xem</span>}
+                        </h3>
                         <p className="text-brand-accent text-sm font-bold">${p.symbol} <span className="text-brand-muted text-[10px] ml-1 px-1.5 py-0.5 rounded bg-[#1C2541] uppercase">{p.chain}</span></p>
                       </div>
-                      <button onClick={() => handleDelete(p.id)} className="text-brand-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(p.id);
+                        }}
+                        className="text-brand-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-1"
+                        title="Xóa dự án"
+                      >
                         <Trash2 size={16}/>
                       </button>
                     </div>
@@ -216,279 +235,276 @@ export default function GameFiPage({ onMenuToggle }: { onMenuToggle?: () => void
                 Không tìm thấy token GameFi nào hoặc lỗi kết nối. Vui lòng thử lại sau.
               </div>
             ) : (
-              <>
-                {/* Token Table */}
-                <div className="bg-brand-surface border border-[#1C2541] rounded-xl overflow-hidden shadow-lg">
-                  <div className="p-4 bg-[#0B132B] border-b border-[#1C2541] flex justify-between items-center">
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                      <TrendingUp size={14} className="text-brand-accent" /> TOP GAMEFI & P2E TOKENS
-                    </h3>
-                    <button onClick={fetchScannedTokens} className="text-xs text-brand-accent hover:underline cursor-pointer">
-                      🔄 Làm mới
-                    </button>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-[#1C2541] text-[10px] text-brand-muted uppercase font-bold bg-[#0B132B]/50">
-                          <th className="py-3 px-4 w-12 text-center">Hạng</th>
-                          <th className="py-3 px-4">Token / Dự Án</th>
-                          <th className="py-3 px-4 text-right">Giá</th>
-                          <th className="py-3 px-4 text-right">24h</th>
-                          <th className="py-3 px-4 hidden md:table-cell">Thể Loại</th>
-                          <th className="py-3 px-4 hidden lg:table-cell">Cách Earn</th>
-                          <th className="py-3 px-4 text-center">Hành Động</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#1C2541]/40 text-sm">
-                        {scannedTokens.map((t) => (
-                          <tr key={t.symbol} className={`hover:bg-[#1C2541]/20 transition-colors cursor-pointer ${selectedToken?.symbol === t.symbol ? "bg-brand-accent/5 border-l-2 border-l-brand-accent" : ""}`}
-                              onClick={() => setSelectedToken(selectedToken?.symbol === t.symbol ? null : t)}>
-                            <td className="py-3.5 px-4 text-center font-mono text-brand-muted font-bold">
-                              #{t.rank}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <div className="flex items-center gap-3">
-                                {t.image ? (
-                                  <img src={t.image} alt={t.name} className="w-7 h-7 rounded-full" />
-                                ) : (
-                                  <div className="w-7 h-7 rounded-full bg-brand-accent/10 flex items-center justify-center text-brand-accent text-xs font-bold font-mono">
-                                    {t.symbol.slice(0, 2)}
-                                  </div>
-                                )}
-                                <div>
-                                  <div className="font-bold text-white flex items-center gap-2">
-                                    {t.name}
-                                    {t.status && (
-                                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase ${statusColor(t.status)}`}>
-                                        {t.status}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-brand-accent text-xs font-mono font-bold">{t.symbol}</span>
-                                    {t.chain && t.chain !== "Unknown" && (
-                                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#1C2541] text-brand-muted">{t.chain}</span>
-                                    )}
-                                    {t.risk_level && (
-                                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${riskColor(t.risk_level)}`}>
-                                        {t.risk_level === "LOW" ? "🟢" : t.risk_level === "MEDIUM" ? "🟡" : "🔴"} {t.risk_level}
-                                      </span>
-                                    )}
-                                  </div>
+              <div className="bg-brand-surface border border-[#1C2541] rounded-xl overflow-hidden shadow-lg">
+                <div className="p-4 bg-[#0B132B] border-b border-[#1C2541] flex justify-between items-center">
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <TrendingUp size={14} className="text-brand-accent" /> TOP GAMEFI & P2E TOKENS
+                  </h3>
+                  <button onClick={fetchScannedTokens} className="text-xs text-brand-accent hover:underline cursor-pointer">
+                    🔄 Làm mới
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#1C2541] text-[10px] text-brand-muted uppercase font-bold bg-[#0B132B]/50">
+                        <th className="py-3 px-4 w-12 text-center">Hạng</th>
+                        <th className="py-3 px-4">Token / Dự Án</th>
+                        <th className="py-3 px-4 text-right">Giá</th>
+                        <th className="py-3 px-4 text-right">24h</th>
+                        <th className="py-3 px-4 hidden md:table-cell">Thể Loại</th>
+                        <th className="py-3 px-4 hidden lg:table-cell">Cách Earn</th>
+                        <th className="py-3 px-4 text-center">Hành Động</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1C2541]/40 text-sm">
+                      {scannedTokens.map((t) => (
+                        <tr key={t.symbol} className={`hover:bg-[#1C2541]/20 transition-colors cursor-pointer ${selectedToken?.symbol === t.symbol ? "bg-brand-accent/5 border-l-2 border-l-brand-accent" : ""}`}
+                            onClick={() => setSelectedToken(selectedToken?.symbol === t.symbol ? null : t)}>
+                          <td className="py-3.5 px-4 text-center font-mono text-brand-muted font-bold">
+                            #{t.rank}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-3">
+                              {t.image ? (
+                                <img src={t.image} alt={t.name} className="w-7 h-7 rounded-full" />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-brand-accent/10 flex items-center justify-center text-brand-accent text-xs font-bold font-mono">
+                                  {t.symbol.slice(0, 2)}
+                                </div>
+                              )}
+                              <div>
+                                <div className="font-bold text-white flex items-center gap-2">
+                                  {t.name}
+                                  {t.status && (
+                                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase ${statusColor(t.status)}`}>
+                                      {t.status}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-brand-accent text-xs font-mono font-bold">{t.symbol}</span>
+                                  {t.chain && t.chain !== "Unknown" && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#1C2541] text-brand-muted">{t.chain}</span>
+                                  )}
+                                  {t.risk_level && (
+                                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${riskColor(t.risk_level)}`}>
+                                      {t.risk_level === "LOW" ? "🟢" : t.risk_level === "MEDIUM" ? "🟡" : "🔴"} {t.risk_level}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
-                            </td>
-                            <td className="py-3.5 px-4 text-right font-mono font-bold text-white">
-                              ${t.price >= 1 ? t.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4}) : t.price.toFixed(6)}
-                            </td>
-                            <td className={`py-3.5 px-4 text-right font-mono font-bold ${t.price_change_24h > 0 ? "text-green-400" : t.price_change_24h < 0 ? "text-red-400" : "text-white"}`}>
-                              {t.price_change_24h > 0 ? "+" : ""}{t.price_change_24h.toFixed(2)}%
-                            </td>
-                            <td className="py-3.5 px-4 hidden md:table-cell">
-                              <span className="text-xs text-brand-muted">{t.category || "—"}</span>
-                            </td>
-                            <td className="py-3.5 px-4 hidden lg:table-cell">
-                              <span className="text-xs text-brand-muted truncate block max-w-[180px]">{t.earn_model || "—"}</span>
-                            </td>
-                            <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center gap-1.5 justify-center">
-                                <button
-                                  onClick={() => setSelectedToken(selectedToken?.symbol === t.symbol ? null : t)}
-                                  className="text-xs bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 font-bold px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
-                                  title="Xem chi tiết"
-                                >
-                                  <Info size={12} />
-                                </button>
-                                <button
-                                  onClick={() => handleImport(t)}
-                                  className="text-xs bg-brand-accent/10 hover:bg-brand-accent hover:text-black border border-brand-accent/30 text-brand-accent font-bold px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
-                                  title="Thêm vào Radar"
-                                >
-                                  <Plus size={12} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-white">
+                            ${t.price >= 1 ? t.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4}) : t.price.toFixed(6)}
+                          </td>
+                          <td className={`py-3.5 px-4 text-right font-mono font-bold ${t.price_change_24h > 0 ? "text-green-400" : t.price_change_24h < 0 ? "text-red-400" : "text-white"}`}>
+                            {t.price_change_24h > 0 ? "+" : ""}{t.price_change_24h.toFixed(2)}%
+                          </td>
+                          <td className="py-3.5 px-4 hidden md:table-cell">
+                            <span className="text-xs text-brand-muted">{t.category || "—"}</span>
+                          </td>
+                          <td className="py-3.5 px-4 hidden lg:table-cell">
+                            <span className="text-xs text-brand-muted truncate block max-w-[180px]">{t.earn_model || "—"}</span>
+                          </td>
+                          <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-1.5 justify-center">
+                              <button
+                                onClick={() => setSelectedToken(selectedToken?.symbol === t.symbol ? null : t)}
+                                className="text-xs bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 font-bold px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
+                                title="Xem chi tiết"
+                              >
+                                <Info size={12} />
+                              </button>
+                              <button
+                                onClick={() => handleImport(t)}
+                                className="text-xs bg-brand-accent/10 hover:bg-brand-accent hover:text-black border border-brand-accent/30 text-brand-accent font-bold px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
+                                title="Thêm vào Radar"
+                              >
+                                <Plus size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ===== DETAIL PANEL ===== */}
+        {selectedToken && (
+          <div className="bg-brand-surface border border-brand-accent/20 rounded-xl p-5 shadow-[0_0_30px_rgba(243,186,47,0.05)] animate-in mt-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                {selectedToken.image ? (
+                  <img src={selectedToken.image} alt={selectedToken.name} className="w-10 h-10 rounded-full" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-brand-accent/10 flex items-center justify-center text-brand-accent font-bold">
+                    {selectedToken.symbol.slice(0, 2)}
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-xl font-bold text-white">{selectedToken.name}</h3>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-brand-accent font-mono font-bold text-sm">${selectedToken.symbol}</span>
+                    {selectedToken.chain && selectedToken.chain !== "Unknown" && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#1C2541] text-brand-muted">{selectedToken.chain}</span>
+                    )}
+                    {selectedToken.category && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400">{selectedToken.category}</span>
+                    )}
+                    {selectedToken.status && (
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${statusColor(selectedToken.status)}`}>
+                        {selectedToken.status}
+                      </span>
+                    )}
+                    {selectedToken.risk_level && (
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${riskColor(selectedToken.risk_level)}`}>
+                        Risk: {selectedToken.risk_level}
+                      </span>
+                    )}
                   </div>
                 </div>
+              </div>
+              <button onClick={() => setSelectedToken(null)} className="text-brand-muted hover:text-white cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
 
-                {/* ===== DETAIL PANEL ===== */}
-                {selectedToken && (
-                  <div className="bg-brand-surface border border-brand-accent/20 rounded-xl p-5 shadow-[0_0_30px_rgba(243,186,47,0.05)] animate-in">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        {selectedToken.image ? (
-                          <img src={selectedToken.image} alt={selectedToken.name} className="w-10 h-10 rounded-full" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-brand-accent/10 flex items-center justify-center text-brand-accent font-bold">
-                            {selectedToken.symbol.slice(0, 2)}
-                          </div>
-                        )}
-                        <div>
-                          <h3 className="text-xl font-bold text-white">{selectedToken.name}</h3>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-brand-accent font-mono font-bold text-sm">${selectedToken.symbol}</span>
-                            {selectedToken.chain && selectedToken.chain !== "Unknown" && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#1C2541] text-brand-muted">{selectedToken.chain}</span>
-                            )}
-                            {selectedToken.category && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400">{selectedToken.category}</span>
-                            )}
-                            {selectedToken.status && (
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${statusColor(selectedToken.status)}`}>
-                                {selectedToken.status}
-                              </span>
-                            )}
-                            {selectedToken.risk_level && (
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${riskColor(selectedToken.risk_level)}`}>
-                                Risk: {selectedToken.risk_level}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <button onClick={() => setSelectedToken(null)} className="text-brand-muted hover:text-white cursor-pointer">
-                        <X size={18} />
-                      </button>
-                    </div>
+            {/* Description */}
+            {selectedToken.note && (
+              <p className="text-sm text-brand-muted mb-4 pl-1">{selectedToken.note}</p>
+            )}
 
-                    {/* Description */}
-                    {selectedToken.note && (
-                      <p className="text-sm text-brand-muted mb-4 pl-1">{selectedToken.note}</p>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                      {/* Quick Links */}
-                      <div className="bg-[#0B132B] rounded-xl p-4 border border-[#1C2541]">
-                        <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                          <Globe size={12} className="text-blue-400" /> Link Truy Cập
-                        </h4>
-                        <div className="space-y-2">
-                          {selectedToken.play_url ? (
-                            <a href={selectedToken.play_url} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-2 text-sm text-green-400 hover:text-green-300 transition-colors">
-                              <Play size={13} className="shrink-0" />
-                              <span className="font-bold">🎮 Chơi Ngay</span>
-                              <ExternalLink size={10} className="ml-auto shrink-0 opacity-50" />
-                            </a>
-                          ) : (
-                            <span className="text-xs text-brand-muted">🎮 Chưa có link chơi</span>
-                          )}
-                          {selectedToken.website && (
-                            <a href={selectedToken.website} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors">
-                              <Globe size={13} className="shrink-0" />
-                              <span>Website</span>
-                              <ExternalLink size={10} className="ml-auto shrink-0 opacity-50" />
-                            </a>
-                          )}
-                          {selectedToken.marketplace_url && (
-                            <a href={selectedToken.marketplace_url} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors">
-                              <ShoppingBag size={13} className="shrink-0" />
-                              <span>Marketplace / NFT</span>
-                              <ExternalLink size={10} className="ml-auto shrink-0 opacity-50" />
-                            </a>
-                          )}
-                        </div>
-                        {/* Platform */}
-                        {selectedToken.platform?.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-[#1C2541]">
-                            <span className="text-[10px] text-brand-muted uppercase font-bold">Platform:</span>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {selectedToken.platform.map((p: string, i: number) => (
-                                <span key={i} className="text-[9px] px-2 py-0.5 rounded bg-[#1C2541] text-brand-muted">{p}</span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* How to Earn */}
-                      <div className="bg-[#0B132B] rounded-xl p-4 border border-green-500/10 lg:col-span-2">
-                        <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                          <DollarSign size={12} className="text-green-400" /> Cách Kiếm Tiền
-                        </h4>
-                        {selectedToken.earn_model && (
-                          <div className="mb-3">
-                            <span className="text-[10px] text-brand-muted uppercase font-bold">Mô hình: </span>
-                            <span className="text-sm text-brand-accent font-bold">{selectedToken.earn_model}</span>
-                          </div>
-                        )}
-                        {selectedToken.how_to_earn?.length > 0 ? (
-                          <ol className="space-y-1.5">
-                            {selectedToken.how_to_earn.map((step: string, i: number) => (
-                              <li key={i} className="flex items-start gap-2 text-sm text-brand-muted">
-                                <span className="text-brand-accent font-bold shrink-0 w-5 text-center">{i + 1}.</span>
-                                <span>{step}</span>
-                              </li>
-                            ))}
-                          </ol>
-                        ) : (
-                          <p className="text-sm text-brand-muted">Chưa có hướng dẫn chi tiết</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* ROI + Investment Info */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="bg-[#0B132B] rounded-lg p-3 border border-[#1C2541] text-center">
-                        <p className="text-[10px] text-brand-muted uppercase font-bold">Token Price</p>
-                        <p className="text-lg font-extrabold text-white">
-                          ${selectedToken.price >= 1 ? selectedToken.price.toLocaleString(undefined, {maximumFractionDigits: 4}) : selectedToken.price.toFixed(6)}
-                        </p>
-                      </div>
-                      <div className="bg-[#0B132B] rounded-lg p-3 border border-green-500/10 text-center">
-                        <p className="text-[10px] text-brand-muted uppercase font-bold">Daily ROI</p>
-                        <p className="text-lg font-extrabold text-green-400">${selectedToken.daily_roi_estimate}/day</p>
-                      </div>
-                      <div className="bg-[#0B132B] rounded-lg p-3 border border-yellow-500/10 text-center">
-                        <p className="text-[10px] text-brand-muted uppercase font-bold">NFT Floor</p>
-                        <p className="text-lg font-extrabold text-yellow-400">${selectedToken.nft_floor_price}</p>
-                      </div>
-                      <div className="bg-[#0B132B] rounded-lg p-3 border border-blue-500/10 text-center">
-                        <p className="text-[10px] text-brand-muted uppercase font-bold">Hòa Vốn</p>
-                        <p className="text-lg font-extrabold text-blue-400">
-                          {selectedToken.daily_roi_estimate > 0 && selectedToken.nft_floor_price > 0
-                            ? `${(selectedToken.nft_floor_price / selectedToken.daily_roi_estimate).toFixed(0)} ngày`
-                            : "N/A"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Min investment */}
-                    {selectedToken.min_investment && (
-                      <div className="mt-3 flex items-center gap-2 text-xs text-brand-muted bg-[#0B132B] rounded-lg px-4 py-2.5 border border-[#1C2541]">
-                        <Zap size={12} className="text-brand-accent shrink-0" />
-                        <span className="font-bold text-white">Vốn tối thiểu:</span>
-                        <span>{selectedToken.min_investment}</span>
-                      </div>
-                    )}
-
-                    {/* Action buttons */}
-                    <div className="flex gap-3 mt-4">
-                      <button
-                        onClick={() => handleImport(selectedToken)}
-                        className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-brand-accent to-[#D49E20] text-black hover:shadow-[0_0_20px_rgba(243,186,47,0.3)] transition-all cursor-pointer flex items-center justify-center gap-2"
-                      >
-                        <Calculator size={14} /> Tính ROI & Thêm Radar
-                      </button>
-                      {selectedToken.play_url && (
-                        <a href={selectedToken.play_url} target="_blank" rel="noopener noreferrer"
-                          className="px-6 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-[0_0_20px_rgba(74,222,128,0.3)] transition-all flex items-center gap-2"
-                        >
-                          <Play size={14} /> Chơi Ngay
-                        </a>
-                      )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+              {/* Quick Links */}
+              <div className="bg-[#0B132B] rounded-xl p-4 border border-[#1C2541]">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Globe size={12} className="text-blue-400" /> Link Truy Cập
+                </h4>
+                <div className="space-y-2">
+                  {selectedToken.play_url ? (
+                    <a href={selectedToken.play_url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-green-400 hover:text-green-300 transition-colors">
+                      <Play size={13} className="shrink-0" />
+                      <span className="font-bold">🎮 Chơi Ngay</span>
+                      <ExternalLink size={10} className="ml-auto shrink-0 opacity-50" />
+                    </a>
+                  ) : (
+                    <span className="text-xs text-brand-muted">🎮 Chưa có link chơi</span>
+                  )}
+                  {selectedToken.website && (
+                    <a href={selectedToken.website} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors">
+                      <Globe size={13} className="shrink-0" />
+                      <span>Website</span>
+                      <ExternalLink size={10} className="ml-auto shrink-0 opacity-50" />
+                    </a>
+                  )}
+                  {selectedToken.marketplace_url && (
+                    <a href={selectedToken.marketplace_url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors">
+                      <ShoppingBag size={13} className="shrink-0" />
+                      <span>Marketplace / NFT</span>
+                      <ExternalLink size={10} className="ml-auto shrink-0 opacity-50" />
+                    </a>
+                  )}
+                </div>
+                {/* Platform */}
+                {selectedToken.platform?.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-[#1C2541]">
+                    <span className="text-[10px] text-brand-muted uppercase font-bold">Platform:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {selectedToken.platform.map((p: string, i: number) => (
+                        <span key={i} className="text-[9px] px-2 py-0.5 rounded bg-[#1C2541] text-brand-muted">{p}</span>
+                      ))}
                     </div>
                   </div>
                 )}
-              </>
+              </div>
+
+              {/* How to Earn */}
+              <div className="bg-[#0B132B] rounded-xl p-4 border border-green-500/10 lg:col-span-2">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <DollarSign size={12} className="text-green-400" /> Cách Kiếm Tiền
+                </h4>
+                {selectedToken.earn_model && (
+                  <div className="mb-3">
+                    <span className="text-[10px] text-brand-muted uppercase font-bold">Mô hình: </span>
+                    <span className="text-sm text-brand-accent font-bold">{selectedToken.earn_model}</span>
+                  </div>
+                )}
+                {selectedToken.how_to_earn?.length > 0 ? (
+                  <ol className="space-y-1.5">
+                    {selectedToken.how_to_earn.map((step: string, i: number) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-brand-muted">
+                        <span className="text-brand-accent font-bold shrink-0 w-5 text-center">{i + 1}.</span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-brand-muted">Chưa có hướng dẫn chi tiết</p>
+                )}
+              </div>
+            </div>
+
+            {/* ROI + Investment Info */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-[#0B132B] rounded-lg p-3 border border-[#1C2541] text-center">
+                <p className="text-[10px] text-brand-muted uppercase font-bold">Token Price</p>
+                <p className="text-lg font-extrabold text-white">
+                  ${selectedToken.price >= 1 ? selectedToken.price.toLocaleString(undefined, {maximumFractionDigits: 4}) : selectedToken.price.toFixed(6)}
+                </p>
+              </div>
+              <div className="bg-[#0B132B] rounded-lg p-3 border border-green-500/10 text-center">
+                <p className="text-[10px] text-brand-muted uppercase font-bold">Daily ROI</p>
+                <p className="text-lg font-extrabold text-green-400">${selectedToken.daily_roi_estimate}/day</p>
+              </div>
+              <div className="bg-[#0B132B] rounded-lg p-3 border border-yellow-500/10 text-center">
+                <p className="text-[10px] text-brand-muted uppercase font-bold">NFT Floor</p>
+                <p className="text-lg font-extrabold text-yellow-400">${selectedToken.nft_floor_price}</p>
+              </div>
+              <div className="bg-[#0B132B] rounded-lg p-3 border border-blue-500/10 text-center">
+                <p className="text-[10px] text-brand-muted uppercase font-bold">Hòa Vốn</p>
+                <p className="text-lg font-extrabold text-blue-400">
+                  {selectedToken.daily_roi_estimate > 0 && selectedToken.nft_floor_price > 0
+                    ? `${(selectedToken.nft_floor_price / selectedToken.daily_roi_estimate).toFixed(0)} ngày`
+                    : "N/A"}
+                </p>
+              </div>
+            </div>
+
+            {/* Min investment */}
+            {selectedToken.min_investment && (
+              <div className="mt-3 flex items-center gap-2 text-xs text-brand-muted bg-[#0B132B] rounded-lg px-4 py-2.5 border border-[#1C2541]">
+                <Zap size={12} className="text-brand-accent shrink-0" />
+                <span className="font-bold text-white">Vốn tối thiểu:</span>
+                <span>{selectedToken.min_investment}</span>
+              </div>
             )}
+
+            {/* Action buttons */}
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => handleImport(selectedToken)}
+                className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-brand-accent to-[#D49E20] text-black hover:shadow-[0_0_20px_rgba(243,186,47,0.3)] transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Calculator size={14} /> Tính ROI & Thêm Radar
+              </button>
+              {selectedToken.play_url && (
+                <a href={selectedToken.play_url} target="_blank" rel="noopener noreferrer"
+                  className="px-6 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-[0_0_20px_rgba(74,222,128,0.3)] transition-all flex items-center gap-2"
+                >
+                  <Play size={14} /> Chơi Ngay
+                </a>
+              )}
+            </div>
           </div>
         )}
 
