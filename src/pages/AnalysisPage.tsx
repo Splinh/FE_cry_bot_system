@@ -7,6 +7,13 @@ import {
   X,
   Activity,
   Wallet,
+  Calendar,
+  AlertTriangle,
+  Clock,
+  Shield,
+  ChevronDown,
+  ChevronUp,
+  Info,
 } from "lucide-react";
 import Header from "../components/Header";
 
@@ -29,6 +36,10 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
   const [tradeMsg, setTradeMsg] = useState("");
   const [tradeVolume, setTradeVolume] = useState(100);
 
+  // Limit Order from analysis
+  const [limitLoading, setLimitLoading] = useState(false);
+  const [limitMsg, setLimitMsg] = useState("");
+
   // Wallet selection
   const [wallets, setWallets] = useState<any[]>([]);
   const [selectedWallet, setSelectedWallet] = useState<any>(null);
@@ -38,6 +49,11 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // Macro Events
+  const [macroEvents, setMacroEvents] = useState<any[]>([]);
+  const [macroRisk, setMacroRisk] = useState<any>({});
+  const [macroExpanded, setMacroExpanded] = useState(true);
 
   // Popular tokens
   const ALL_TOKENS = [
@@ -108,6 +124,23 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
     };
     fetchAll();
     const iv = setInterval(fetchAll, 3000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Fetch macro events
+  useEffect(() => {
+    const fetchMacro = async () => {
+      try {
+        const [cal, risk] = await Promise.all([
+          axios.get(`${API}/api/macro/calendar?days=14`),
+          axios.get(`${API}/api/macro/risk`),
+        ]);
+        setMacroEvents((cal.data.events || []).filter((e: any) => !e.is_past));
+        setMacroRisk(risk.data || {});
+      } catch {}
+    };
+    fetchMacro();
+    const iv = setInterval(fetchMacro, 60000); // Refresh every 60s
     return () => clearInterval(iv);
   }, []);
 
@@ -182,6 +215,36 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
       setTimeout(() => setTradeMsg(""), 4000);
     }
     setTradeLoading(false);
+  };
+
+  const executeLimitOrder = async (
+    coin: string,
+    direction: string,
+    triggerPrice: number,
+    leverage: number
+  ) => {
+    setLimitLoading(true);
+    setLimitMsg("");
+    try {
+      const res = await axios.post(`${API}/api/orders/create`, {
+        coin,
+        direction,
+        trigger_price: triggerPrice,
+        usdt_size: tradeVolume,
+        leverage: taMarket === "SPOT" ? 1 : leverage,
+        expiry_hours: 24,
+      });
+      if (res.data.success) {
+        setLimitMsg(
+          `✅ Đã đặt limit ${direction} ${coin} @ $${triggerPrice.toLocaleString()} | Size: $${tradeVolume}`
+        );
+        setTimeout(() => setLimitMsg(""), 5000);
+      }
+    } catch (e: any) {
+      setLimitMsg(`❌ ${e.response?.data?.detail || "Lỗi đặt lệnh chờ"}`);
+      setTimeout(() => setLimitMsg(""), 5000);
+    }
+    setLimitLoading(false);
   };
 
   const quickTrade = (sig: any) => {
@@ -496,6 +559,54 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
               </div>
             )}
 
+            {/* Smart SL/TP Method Badge + Macro Risk */}
+            {(taResult.sl_method || taResult.macro_risk) && (
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                {taResult.sl_method && (
+                  <span className="inline-flex items-center text-[10px] font-bold px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                    <Shield size={10} className="mr-1" />
+                    SL Method: {taResult.sl_method}
+                  </span>
+                )}
+                {taResult.sl_method_detail && (
+                  <span className="text-[10px] px-2 py-1 rounded-lg bg-[#0B132B] text-brand-muted border border-[#1C2541]">
+                    {taResult.sl_method_detail}
+                  </span>
+                )}
+                {taResult.atr > 0 && (
+                  <span className="text-[10px] font-mono px-2 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    ATR: {taResult.atr.toFixed(4)}
+                  </span>
+                )}
+                {taResult.macro_risk && (
+                  <span className={`inline-flex items-center text-[10px] font-bold px-2.5 py-1 rounded-lg border ${
+                    taResult.macro_risk === "CRITICAL"
+                      ? "bg-red-500/10 text-red-400 border-red-500/20"
+                      : taResult.macro_risk === "HIGH"
+                        ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+                        : "bg-green-500/10 text-green-400 border-green-500/20"
+                  }`}>
+                    <AlertTriangle size={10} className="mr-1" />
+                    Macro: {taResult.macro_risk}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Macro Warnings */}
+            {taResult.macro_context?.warnings?.length > 0 && (
+              <div className="mb-4 space-y-1.5">
+                {taResult.macro_context.warnings.map((w: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-yellow-500/5 border border-yellow-500/15">
+                    <AlertTriangle size={12} className="text-yellow-400 shrink-0" />
+                    <span className="text-yellow-300">{w.level || w}</span>
+                    <span className="text-brand-muted">{w.message || ""}</span>
+                    {w.advice && <span className="text-brand-muted italic ml-auto hidden sm:inline">→ {w.advice}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Entry/SL/TP - luon hien nhu scalping card */}
             {taResult.sl && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-4">
@@ -644,6 +755,81 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
               >
                 {tradeMsg}
               </p>
+            )}
+
+            {/* ===== LIMIT ORDER SIGNALS ===== */}
+            {taResult.limit_entries && taResult.limit_entries.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-[#1C2541]">
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center">
+                  <Activity size={14} className="mr-2 text-brand-accent" /> Tín Hiệu Giá Chờ (Limit Orders)
+                </h4>
+                
+                {limitMsg && (
+                  <div className={`mb-4 px-4 py-3 rounded-xl text-xs font-bold ${
+                    limitMsg.startsWith("✅") ? "bg-green-500/10 border border-green-500/30 text-green-400" : "bg-red-500/10 border border-red-500/30 text-red-400"
+                  }`}>
+                    {limitMsg}
+                  </div>
+                )}
+
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
+                  {taResult.limit_entries.map((entry: any, index: number) => {
+                    const isLong = entry.direction === "LONG";
+                    const cardBorder = isLong ? "border-green-500/20 hover:border-green-500/40" : "border-red-500/20 hover:border-red-500/40";
+                    const badgeClass = isLong ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20";
+                    
+                    // Score coloring
+                    const scoreColor = entry.score >= 9 ? "text-green-400 bg-green-500/10 border-green-500/20" 
+                      : entry.score >= 7 ? "text-yellow-400 bg-yellow-500/10 border-yellow-500/20" 
+                      : "text-blue-400 bg-blue-500/10 border-blue-500/20";
+
+                    return (
+                      <div
+                        key={index}
+                        className={`p-3 bg-[#0B132B] rounded-xl border ${cardBorder} transition-all duration-300 flex flex-col justify-between`}
+                      >
+                        <div>
+                          <div className="flex justify-between items-center mb-2">
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md ${badgeClass}`}>
+                              {isLong ? "🟢 BUY LIMIT" : "🔴 SELL LIMIT"}
+                            </span>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${scoreColor}`}>
+                              Độ mạnh: {entry.score}/10
+                            </span>
+                          </div>
+
+                          <div className="text-white font-mono font-bold text-lg mb-1">
+                            ${entry.entry_price?.toLocaleString()}
+                          </div>
+                          
+                          <div className="text-[10px] text-brand-muted mb-2 flex items-center justify-between">
+                            <span>Cách giá hiện tại:</span>
+                            <span className={isLong ? "text-green-400 font-bold" : "text-red-400 font-bold"}>
+                              {isLong ? "↓" : "↑"} {entry.distance_pct}%
+                            </span>
+                          </div>
+
+                          <p className="text-[10px] text-brand-muted bg-[#1C2541]/40 rounded px-2 py-1 mb-3 italic">
+                            💡 {entry.reason}
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => executeLimitOrder(taCoin, entry.direction, entry.entry_price, taResult.leverage || taLeverage)}
+                          disabled={limitLoading}
+                          className={`w-full py-1.5 font-bold text-xs rounded-lg transition-all cursor-pointer disabled:opacity-50 ${
+                            isLong
+                              ? "bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500 hover:text-white font-bold"
+                              : "bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500 hover:text-white font-bold"
+                          }`}
+                        >
+                          {limitLoading ? "⏳ Đang đặt..." : "⚡ Đặt Limit"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -869,6 +1055,156 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* ===== MACRO EVENTS PANEL ===== */}
+        <div className="bg-brand-surface border border-[#1C2541] rounded-xl p-5">
+          <button
+            onClick={() => setMacroExpanded(!macroExpanded)}
+            className="w-full flex items-center justify-between cursor-pointer"
+          >
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center">
+              <Calendar size={14} className="mr-2 text-blue-400" /> Macro
+              Events — Lịch Kinh Tế
+              {macroRisk.risk_level && macroRisk.risk_level !== "NORMAL" && (
+                <span className={`ml-2 text-[10px] font-bold px-2 py-0.5 rounded ${
+                  macroRisk.risk_level === "CRITICAL"
+                    ? "bg-red-500/15 text-red-400 animate-pulse"
+                    : "bg-yellow-500/15 text-yellow-400"
+                }`}>
+                  {macroRisk.risk_level === "CRITICAL" ? "🔴" : "🟡"} {macroRisk.risk_level}
+                </span>
+              )}
+            </h3>
+            {macroExpanded ? <ChevronUp size={16} className="text-brand-muted" /> : <ChevronDown size={16} className="text-brand-muted" />}
+          </button>
+
+          {macroExpanded && (
+            <div className="mt-4 space-y-3">
+              {/* Risk Summary Banner */}
+              {macroRisk.warnings?.length > 0 && (
+                <div className={`rounded-xl p-4 border ${
+                  macroRisk.risk_level === "CRITICAL"
+                    ? "bg-red-500/5 border-red-500/20"
+                    : "bg-yellow-500/5 border-yellow-500/20"
+                }`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle size={14} className={macroRisk.risk_level === "CRITICAL" ? "text-red-400" : "text-yellow-400"} />
+                    <span className="text-sm font-bold text-white">Cảnh Báo Rủi Ro</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {macroRisk.warnings.slice(0, 3).map((w: any, i: number) => (
+                      <div key={i} className="text-xs text-brand-muted">
+                        <span className="font-bold">{w.level}</span>{" "}
+                        {w.message}
+                        {w.advice && (
+                          <span className="text-brand-accent ml-1">→ {w.advice}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Events Timeline */}
+              {macroEvents.length === 0 ? (
+                <div className="flex flex-col items-center py-6 text-brand-muted">
+                  <Calendar size={28} className="opacity-30 mb-2" />
+                  <p className="text-sm">Không có sự kiện nào trong 14 ngày tới</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {macroEvents.slice(0, 10).map((ev: any, i: number) => {
+                    const impactColor =
+                      ev.impact === "CRITICAL" ? "border-red-500/30 bg-red-500/5"
+                        : ev.impact === "HIGH" ? "border-yellow-500/20 bg-yellow-500/5"
+                          : "border-[#1C2541] bg-[#0B132B]";
+                    const impactBadge =
+                      ev.impact === "CRITICAL" ? "bg-red-500/15 text-red-400"
+                        : ev.impact === "HIGH" ? "bg-yellow-500/15 text-yellow-400"
+                          : "bg-blue-500/10 text-blue-400";
+                    const impactIcon =
+                      ev.impact === "CRITICAL" ? "🔴"
+                        : ev.impact === "HIGH" ? "🟡"
+                          : "🟢";
+                    const hoursUntil = ev.hours_until || 0;
+                    const isUrgent = hoursUntil > 0 && hoursUntil <= 24;
+                    const isUpcoming48 = hoursUntil > 24 && hoursUntil <= 48;
+
+                    return (
+                      <div key={i} className={`flex items-center gap-3 p-3 rounded-xl border transition-all hover:border-brand-accent/30 ${impactColor}`}>
+                        {/* Date Column */}
+                        <div className="text-center min-w-[52px] shrink-0">
+                          <div className="text-[10px] text-brand-muted uppercase">
+                            {new Date(ev.date).toLocaleDateString("vi-VN", { weekday: "short" })}
+                          </div>
+                          <div className="text-sm font-bold text-white">
+                            {new Date(ev.date).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
+                          </div>
+                          {ev.time && ev.time !== "00:00" && (
+                            <div className="text-[9px] text-brand-muted">{ev.time} UTC</div>
+                          )}
+                        </div>
+
+                        {/* Event Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-bold text-white truncate">{ev.title}</span>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${impactBadge}`}>
+                              {impactIcon} {ev.impact}
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#1C2541] text-brand-muted">
+                              {ev.type}
+                            </span>
+                          </div>
+                          {ev.info?.crypto_impact && (
+                            <p className="text-[10px] text-brand-muted mt-0.5 truncate">
+                              📊 {ev.info.crypto_impact}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Countdown */}
+                        <div className="text-right shrink-0">
+                          {hoursUntil > 0 ? (
+                            <div className={`text-xs font-bold ${
+                              isUrgent ? "text-red-400 animate-pulse" : isUpcoming48 ? "text-yellow-400" : "text-brand-muted"
+                            }`}>
+                              <Clock size={10} className="inline mr-1" />
+                              {hoursUntil < 1
+                                ? `${Math.round(hoursUntil * 60)}m`
+                                : hoursUntil < 24
+                                  ? `${Math.round(hoursUntil)}h`
+                                  : `${Math.round(hoursUntil / 24)}d`}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-brand-muted">Đã qua</span>
+                          )}
+                          {ev.forecast && (
+                            <div className="text-[9px] text-brand-muted mt-0.5">
+                              F: {ev.forecast}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Summary footer */}
+              <div className="flex items-center justify-between text-[10px] text-brand-muted pt-2 border-t border-[#1C2541]">
+                <span>
+                  Tổng: {macroEvents.length} sự kiện | Critical: {macroRisk.critical_count || 0} | High: {macroRisk.high_count || 0}
+                </span>
+                <span className={`font-bold ${
+                  macroRisk.risk_level === "CRITICAL" ? "text-red-400" : macroRisk.risk_level === "HIGH" ? "text-yellow-400" : "text-green-400"
+                }`}>
+                  Risk Level: {macroRisk.risk_level || "NORMAL"}
+                </span>
+              </div>
             </div>
           )}
         </div>

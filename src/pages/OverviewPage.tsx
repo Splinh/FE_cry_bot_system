@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, Wallet, Send, Clock, Activity } from "lucide-react";
+import { TrendingUp, Wallet, Send, Clock, Activity, Calendar, AlertTriangle, Shield } from "lucide-react";
 import Header from "../components/Header";
 
 import { API } from "../config";
@@ -17,6 +17,20 @@ import { API } from "../config";
 export default function OverviewPage({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const [data, setData] = useState<any>(null);
   const [pnlHistory, setPnlHistory] = useState<any[]>([]);
+  const [macroRisk, setMacroRisk] = useState<any>({});
+
+  // Fetch macro risk
+  useEffect(() => {
+    const fetchMacro = async () => {
+      try {
+        const res = await axios.get(`${API}/api/macro/risk`);
+        setMacroRisk(res.data || {});
+      } catch {}
+    };
+    fetchMacro();
+    const iv = setInterval(fetchMacro, 60000);
+    return () => clearInterval(iv);
+  }, []);
 
   useEffect(() => {
     const fetch = async () => {
@@ -212,6 +226,75 @@ export default function OverviewPage({ onMenuToggle }: { onMenuToggle?: () => vo
                   )
                 }
               />
+            </div>
+          </div>
+
+          {/* Upcoming Macro Events */}
+          <div className="bg-brand-surface border border-[#1C2541] rounded-xl p-5 md:col-span-2">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center">
+                <Calendar size={14} className="mr-2 text-blue-400" />
+                Sự Kiện Sắp Tới
+              </h4>
+              {macroRisk.risk_level && (
+                <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                  macroRisk.risk_level === "CRITICAL"
+                    ? "bg-red-500/15 text-red-400 animate-pulse"
+                    : macroRisk.risk_level === "HIGH"
+                      ? "bg-yellow-500/15 text-yellow-400"
+                      : "bg-green-500/15 text-green-400"
+                }`}>
+                  {macroRisk.risk_level === "CRITICAL" ? "🔴" : macroRisk.risk_level === "HIGH" ? "🟡" : "🟢"} {macroRisk.risk_level || "NORMAL"}
+                </span>
+              )}
+            </div>
+
+            {/* Risk Warning */}
+            {macroRisk.warnings?.length > 0 && (
+              <div className={`mb-3 px-3 py-2 rounded-lg border text-xs ${
+                macroRisk.risk_level === "CRITICAL"
+                  ? "bg-red-500/5 border-red-500/20 text-red-400"
+                  : "bg-yellow-500/5 border-yellow-500/20 text-yellow-400"
+              }`}>
+                <AlertTriangle size={12} className="inline mr-1" />
+                {macroRisk.warnings[0]?.message || "Có sự kiện kinh tế quan trọng sắp tới"}
+              </div>
+            )}
+
+            {/* Events List */}
+            <div className="space-y-1.5">
+              {(macroRisk.upcoming_events || []).length === 0 ? (
+                <p className="text-brand-muted text-xs text-center py-3">Không có sự kiện nào trong tuần</p>
+              ) : (
+                (macroRisk.upcoming_events || []).slice(0, 5).map((ev: any, i: number) => {
+                  const hoursUntil = ev.hours_until || 0;
+                  const isUrgent = hoursUntil > 0 && hoursUntil <= 24;
+                  const impactBadge =
+                    ev.impact === "CRITICAL" ? "bg-red-500/15 text-red-400"
+                      : ev.impact === "HIGH" ? "bg-yellow-500/15 text-yellow-400"
+                        : "bg-blue-500/10 text-blue-400";
+                  return (
+                    <div key={i} className="flex items-center justify-between py-1.5 border-b border-[#1C2541]/50">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${impactBadge}`}>
+                          {ev.type}
+                        </span>
+                        <span className="text-xs text-white truncate">{ev.title}</span>
+                      </div>
+                      <div className={`text-xs font-bold shrink-0 ml-2 ${
+                        isUrgent ? "text-red-400" : "text-brand-muted"
+                      }`}>
+                        <Clock size={10} className="inline mr-0.5" />
+                        {hoursUntil < 1
+                          ? `${Math.round(hoursUntil * 60)}m`
+                          : hoursUntil < 24
+                            ? `${Math.round(hoursUntil)}h`
+                            : `${Math.round(hoursUntil / 24)}d`}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

@@ -166,10 +166,17 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
       });
       if (res.data.success) {
         const wName = selectedWallet ? ` | 👛 ${selectedWallet.label}` : "";
-        setTradeMsg(
-          `✅ ${direction} ${coin} ${marketType} x${marketType === "SPOT" ? 1 : leverage} | $${volume}${wName}`,
-        );
-        setTimeout(() => setTradeMsg(""), 3000);
+        if (res.data.is_dca) {
+          const p = res.data.position;
+          setTradeMsg(
+            `🔄 DCA #${p.dca_count}: ${direction} ${coin} +$${volume} → Total: $${p.usdt_size?.toFixed(0)} | Avg Entry: $${p.entry_price?.toFixed(2)}${wName}`,
+          );
+        } else {
+          setTradeMsg(
+            `✅ ${direction} ${coin} ${marketType} x${marketType === "SPOT" ? 1 : leverage} | $${volume}${wName}`,
+          );
+        }
+        setTimeout(() => setTradeMsg(""), 5000);
       }
     } catch (e: any) {
       setTradeMsg(`❌ ${e.response?.data?.detail || "Lỗi mở lệnh"}`);
@@ -882,6 +889,11 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
                           x{pos.leverage}
                         </span>
                       )}
+                      {(pos.dca_count || 0) > 0 && (
+                        <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400">
+                          🔄 DCA ×{pos.dca_count}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 md:gap-5 text-sm">
@@ -890,6 +902,11 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
                       <span className="text-white">
                         ${pos.entry_price?.toFixed(2)}
                       </span>
+                      {pos.last_dca_price > 0 && (
+                        <span className="text-cyan-400 text-[9px] ml-1" title="Giá DCA gần nhất">
+                          (DCA: ${pos.last_dca_price?.toFixed(2)})
+                        </span>
+                      )}
                     </div>
                     {pos.current_price > 0 && (
                       <div className="text-brand-muted">
