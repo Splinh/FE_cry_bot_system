@@ -13,7 +13,6 @@ import {
   History,
   Zap,
   TrendingUp,
-  TrendingDown,
   AlertCircle,
   Loader,
   BarChart3,

@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, Wallet, Send, Clock, Activity, Calendar, AlertTriangle, Shield } from "lucide-react";
+import { TrendingUp, Wallet, Send, Clock, Activity, Calendar, AlertTriangle } from "lucide-react";
 import Header from "../components/Header";
 
 import { API } from "../config";

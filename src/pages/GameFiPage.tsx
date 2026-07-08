@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import {
   Gamepad2, Plus, Calculator, Trash2, Compass, TrendingUp,
-  ExternalLink, Globe, ShoppingBag, Info, ChevronDown, ChevronUp,
-  Shield, Zap, DollarSign, Users, X, Play,
+  ExternalLink, Globe, ShoppingBag, Info,
+  Zap, DollarSign, X, Play,
 } from "lucide-react";
 import Header from "../components/Header";
 import { API } from "../config";

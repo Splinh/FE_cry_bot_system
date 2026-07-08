@@ -13,7 +13,6 @@ import {
   Shield,
   ChevronDown,
   ChevronUp,
-  Info,
 } from "lucide-react";
 import Header from "../components/Header";
 

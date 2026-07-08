@@ -1188,7 +1188,7 @@ function LimitOrderSection({ coin, prices }: { coin: string; prices: any }) {
   const [loDirection, setLoDirection] = useState("LONG");
   const [loPrice, setLoPrice] = useState(0);
   const [loSize, setLoSize] = useState(100);
-  const [loLeverage, setLoLeverage] = useState(1);
+  const loLeverage = 10;
   const [loExpiry, setLoExpiry] = useState(24);
   const [loLoading, setLoLoading] = useState(false);
   const [loMsg, setLoMsg] = useState("");
