@@ -10,6 +10,7 @@ import {
   Wallet,
   ArrowDownCircle,
   ArrowUpCircle,
+  AlertTriangle,
 } from "lucide-react";
 import Header from "../components/Header";
 import WalletConnectButton from "../components/WalletConnectButton";
@@ -90,6 +91,41 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
   const [tokenSearch, setTokenSearch] = useState("");
   const [, setShowSearch] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // Leverage/Volatility warning check
+  const [leverageWarning, setLeverageWarning] = useState<string | null>(null);
+  const [recommendedLeverage, setRecommendedLeverage] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (marketType !== "FUTURES") {
+      setLeverageWarning(null);
+      setRecommendedLeverage(null);
+      return;
+    }
+    const checkLeverageSafety = async () => {
+      try {
+        const res = await axios.get(`${API}/api/trading/analyze/${coin}`, {
+          params: {
+            leverage: leverage,
+            market_type: "futures",
+          },
+        });
+        if (res.data && res.data.leverage_warning) {
+          setLeverageWarning(res.data.leverage_warning);
+          setRecommendedLeverage(res.data.recommended_leverage);
+        } else {
+          setLeverageWarning(null);
+          setRecommendedLeverage(null);
+        }
+      } catch {
+        setLeverageWarning(null);
+        setRecommendedLeverage(null);
+      }
+    };
+
+    const timer = setTimeout(checkLeverageSafety, 500);
+    return () => clearTimeout(timer);
+  }, [coin, leverage, marketType]);
 
   // Fetch wallets once
   useEffect(() => {
@@ -743,6 +779,28 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
                 </div>
               )}
             </div>
+
+            {/* Cảnh báo đòn bẩy quá cao */}
+            {leverageWarning && (
+              <div className="p-3 rounded-lg border border-yellow-500/20 bg-yellow-500/10 text-left">
+                <div className="flex items-start space-x-2">
+                  <AlertTriangle className="text-yellow-400 shrink-0 mt-0.5" size={14} />
+                  <div>
+                    <h5 className="text-yellow-400 font-bold text-[11px]">⚠️ Cảnh báo đòn bẩy</h5>
+                    <p className="text-[10px] text-yellow-100/90 mt-0.5 leading-relaxed">{leverageWarning}</p>
+                  </div>
+                </div>
+                {recommendedLeverage && (
+                  <button
+                    type="button"
+                    onClick={() => setLeverage(recommendedLeverage)}
+                    className="mt-2 w-full py-1.5 bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-[10px] rounded transition-all cursor-pointer shadow-[0_0_8px_rgba(234,179,8,0.15)]"
+                  >
+                    Áp dụng x{recommendedLeverage}
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Wallet Selector */}
             <div>

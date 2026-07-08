@@ -4,8 +4,15 @@ import Header from "../components/Header";
 
 import { API } from "../config";
 
+interface AuditLog {
+  time: string;
+  chat_id: number;
+  action: string;
+  detail?: string;
+}
+
 export default function SecurityPage({ onMenuToggle }: { onMenuToggle?: () => void }) {
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
 
   useEffect(() => {
     axios
@@ -49,26 +56,46 @@ export default function SecurityPage({ onMenuToggle }: { onMenuToggle?: () => vo
           <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
             📜 Audit Log (Last 30)
           </h3>
-          <div className="bg-[#0B132B] rounded-lg p-4 max-h-[400px] overflow-y-auto font-mono text-xs space-y-0.5">
+          <div className="bg-[#0B132B] rounded-lg p-4 max-h-[400px] overflow-y-auto font-mono text-xs space-y-1">
             {logs.length === 0 ? (
               <p className="text-brand-muted">Chưa có log bảo mật nào.</p>
             ) : (
-              logs.map((l, i) => (
-                <p
-                  key={i}
-                  className={`py-0.5 ${
-                    l.includes("WARN")
-                      ? "text-yellow-400"
-                      : l.includes("ERROR") || l.includes("FAIL")
-                        ? "text-red-400"
-                        : l.includes("SUCCESS")
-                          ? "text-green-400"
-                          : "text-brand-muted"
-                  }`}
-                >
-                  {l}
-                </p>
-              ))
+              logs.map((l, i) => {
+                const logTime = new Date(l.time).toLocaleTimeString("vi-VN", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                });
+                const actionLower = l.action.toLowerCase();
+                const isWarn = actionLower.includes("warn");
+                const isError =
+                  actionLower.includes("fail") ||
+                  actionLower.includes("deny") ||
+                  actionLower.includes("error");
+                const isSuccess =
+                  actionLower.includes("success") ||
+                  actionLower.includes("approve");
+
+                const detailStr = l.detail ? ` - ${l.detail}` : "";
+                const logText = `[${logTime}] Chat ${l.chat_id}: ${l.action}${detailStr}`;
+
+                return (
+                  <p
+                    key={i}
+                    className={`py-0.5 border-b border-[#1C2541]/30 last:border-0 ${
+                      isWarn
+                        ? "text-yellow-400"
+                        : isError
+                          ? "text-red-400"
+                          : isSuccess
+                            ? "text-green-400"
+                            : "text-brand-muted"
+                    }`}
+                  >
+                    {logText}
+                  </p>
+                );
+              })
             )}
           </div>
         </div>

@@ -28,6 +28,7 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
   const [taCoin, setTaCoin] = useState("BTC");
   const [taLeverage, setTaLeverage] = useState(10);
   const [taMarket, setTaMarket] = useState<"SPOT" | "FUTURES">("FUTURES");
+  const [taTimeframe, setTaTimeframe] = useState("auto");
   const [taResult, setTaResult] = useState<any>(null);
   const [taLoading, setTaLoading] = useState(false);
 
@@ -170,13 +171,15 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
     setShowSearch(false);
   };
 
-  const runAnalysis = async () => {
+  const runAnalysis = async (overrideLeverage?: number | any) => {
     setTaLoading(true);
+    const targetLev = typeof overrideLeverage === "number" ? overrideLeverage : taLeverage;
     try {
       const res = await axios.get(`${API}/api/trading/analyze/${taCoin}`, {
         params: {
-          leverage: taMarket === "SPOT" ? 1 : taLeverage,
+          leverage: taMarket === "SPOT" ? 1 : targetLev,
           market_type: taMarket.toLowerCase(),
+          timeframe: taTimeframe,
         },
       });
       setTaResult(res.data);
@@ -408,24 +411,30 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
               )}
             </div>
 
-            {/* Timeframe info */}
+            {/* Timeframe selector */}
             <div>
               <label className="text-[10px] text-brand-muted uppercase font-bold block mb-1">
                 Timeframe
               </label>
-              <div className="bg-[#0B132B] border border-[#1C2541] rounded-lg px-3 py-2.5 text-white text-sm font-bold text-center">
-                {taMarket === "SPOT"
-                  ? "1d"
-                  : taLeverage >= 50
-                    ? "5m"
-                    : taLeverage >= 20
-                      ? "15m"
-                      : taLeverage >= 10
-                        ? "1h"
-                        : "4h"}
+              <div className="flex flex-wrap gap-1">
+                {["auto", "1m", "5m", "15m", "30m", "1h", "4h", "1d"].map((tf) => (
+                  <button
+                    key={tf}
+                    onClick={() => setTaTimeframe(tf)}
+                    className={`px-2 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                      taTimeframe === tf
+                        ? "bg-brand-accent text-black shadow-[0_0_8px_rgba(243,186,47,0.3)]"
+                        : "bg-[#0B132B] border border-[#1C2541] text-brand-muted hover:text-white hover:border-brand-accent/30"
+                    }`}
+                  >
+                    {tf === "auto" ? "⚡ Auto" : tf}
+                  </button>
+                ))}
               </div>
-              <p className="text-[9px] text-brand-muted mt-1 text-center">
-                Auto theo leverage
+              <p className="text-[9px] text-brand-muted mt-1">
+                {taTimeframe === "auto"
+                  ? `Auto → ${taMarket === "SPOT" ? "1d" : taLeverage >= 50 ? "5m" : taLeverage >= 20 ? "15m" : taLeverage >= 10 ? "1h" : "4h"}`
+                  : `Đang dùng: ${taTimeframe}`}
               </p>
             </div>
 
@@ -441,6 +450,30 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
             </div>
           </div>
         </div>
+
+        {/* Cảnh báo đòn bẩy quá cao nếu có */}
+        {taResult && taResult.leverage_warning && (
+          <div className="mb-6 p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start space-x-3">
+              <AlertTriangle className="text-yellow-400 shrink-0 mt-0.5" size={18} />
+              <div>
+                <h4 className="text-yellow-400 font-bold text-sm">⚠️ Cảnh báo đòn bẩy quá cao</h4>
+                <p className="text-xs text-yellow-100/90 mt-1 leading-relaxed">{taResult.leverage_warning}</p>
+              </div>
+            </div>
+            {taResult.recommended_leverage && (
+              <button
+                onClick={() => {
+                  setTaLeverage(taResult.recommended_leverage);
+                  runAnalysis(taResult.recommended_leverage);
+                }}
+                className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-black font-bold text-xs rounded-lg transition-all shrink-0 cursor-pointer shadow-[0_0_10px_rgba(234,179,8,0.2)]"
+              >
+                Áp dụng x{taResult.recommended_leverage}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ===== TA RESULT AS SIGNAL CARD ===== */}
         {taResult && !taResult.error && (
@@ -508,6 +541,29 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
                 </span>
               ))}
             </div>
+
+            {/* AI Recommendation Alert */}
+            {taResult.ai_recommendation && (
+              <div
+                className={`p-4 rounded-xl border mb-4 flex items-start space-x-3 ${
+                  taResult.is_recommended
+                    ? "bg-green-500/10 border-green-500/30 text-green-400 shadow-[0_0_15px_rgba(74,222,128,0.05)]"
+                    : "bg-red-500/10 border-red-500/30 text-red-400 shadow-[0_0_15px_rgba(248,113,113,0.05)]"
+                }`}
+              >
+                <span className="text-xl mt-0.5">
+                  {taResult.is_recommended ? "🤖" : "⚠️"}
+                </span>
+                <div>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-1">
+                    Đánh giá & Khuyến nghị của AI
+                  </h4>
+                  <p className="text-xs font-semibold leading-relaxed">
+                    {taResult.ai_recommendation}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Indicators Row */}
             {taResult.indicators && (
@@ -737,16 +793,20 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
                     taResult.leverage || taLeverage,
                   )
                 }
-                disabled={tradeLoading}
+                disabled={tradeLoading || taResult.is_recommended === false}
                 className={`px-8 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer disabled:opacity-50 ${
-                  (taResult.trade_direction || taResult.direction) === "SHORT"
-                    ? "bg-gradient-to-r from-red-500 to-rose-600 text-white hover:shadow-[0_0_20px_rgba(248,113,113,0.4)]"
-                    : "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-[0_0_20px_rgba(74,222,128,0.4)]"
+                  taResult.is_recommended === false
+                    ? "bg-[#1C2541] text-brand-muted cursor-not-allowed hover:shadow-none border border-[#2B3A63]/50"
+                    : (taResult.trade_direction || taResult.direction) === "SHORT"
+                      ? "bg-gradient-to-r from-red-500 to-rose-600 text-white hover:shadow-[0_0_20px_rgba(248,113,113,0.4)]"
+                      : "bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-[0_0_20px_rgba(74,222,128,0.4)]"
                 }`}
               >
                 {tradeLoading
                   ? "⏳..."
-                  : `⚡ VÀO LỆNH ${taResult.trade_direction || "LONG"} ${taCoin} x${taResult.leverage || taLeverage}`}
+                  : taResult.is_recommended === false
+                    ? `Không nên vào lệnh ${taCoin}`
+                    : `⚡ VÀO LỆNH ${taResult.trade_direction || "LONG"} ${taCoin} x${taResult.leverage || taLeverage}`}
               </button>
             </div>
             {tradeMsg && (
