@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -37,6 +38,31 @@ export default function Sidebar({
   onClose?: () => void;
 }) {
   const { user, logout } = useAuth();
+
+  const [btcPrice, setBtcPrice] = useState<string>("62700.00");
+  const [priceChange, setPriceChange] = useState<string>("0.00");
+
+  useEffect(() => {
+    const ws = new WebSocket("wss://stream.binance.com:9443/ws/btcusdt@ticker");
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data && data.c) {
+          const price = parseFloat(data.c).toFixed(2);
+          setBtcPrice(price);
+          setPriceChange(parseFloat(data.P).toFixed(2));
+          
+          const sign = parseFloat(data.P) >= 0 ? "🟢" : "🔴";
+          document.title = `${sign} $${parseFloat(price).toLocaleString()} | CryptoBot`;
+        }
+      } catch (err) {
+        console.error("Error parsing Binance WS ticker:", err);
+      }
+    };
+    return () => {
+      ws.close();
+    };
+  }, []);
 
   const isAdmin = user?.role === "admin";
   const userPerms = user?.permissions || [];
@@ -104,7 +130,26 @@ export default function Sidebar({
         )}
       </nav>
 
-      <div className="p-4 border-t border-[#1C2541] bg-[#0A1024] space-y-2">
+      <div className="p-4 border-t border-[#1C2541] bg-[#0A1024] space-y-2.5">
+        {/* Realtime Price Ticker */}
+        <div className="px-4 py-3 bg-[#0B132B] border border-[#1C2541] rounded-xl flex items-center justify-between shadow-inner">
+          <div className="flex items-center space-x-2">
+            <span className="relative flex h-2 w-2">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${parseFloat(priceChange) >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${parseFloat(priceChange) >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+            </span>
+            <span className="text-xs text-[#8AA2CA] font-medium tracking-wide">BTC/USDT</span>
+          </div>
+          <div className="text-right">
+            <p className={`text-sm font-bold tracking-tight ${parseFloat(priceChange) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              ${parseFloat(btcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            <p className={`text-[10px] font-semibold ${parseFloat(priceChange) >= 0 ? 'text-emerald-500/80' : 'text-rose-500/80'}`}>
+              {parseFloat(priceChange) >= 0 ? '+' : ''}{priceChange}%
+            </p>
+          </div>
+        </div>
+
         {user && (
           <div className="flex items-center justify-between px-4 py-2">
             <div>
