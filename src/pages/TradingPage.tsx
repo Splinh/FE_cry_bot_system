@@ -84,6 +84,12 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
   const [balHistory, setBalHistory] = useState<any[]>([]);
   const [showDwPanel, setShowDwPanel] = useState(false);
 
+  // Test report states
+  const [showReportPanel, setShowReportPanel] = useState(false);
+  const [reportData, setReportData] = useState<any>(null);
+  const [resetAmount, setResetAmount] = useState<number>(10000);
+  const [reportLoading, setReportLoading] = useState(false);
+
   // SL/TP toast
   const [slTpToasts, setSlTpToasts] = useState<any[]>([]);
 
@@ -212,6 +218,29 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
       }
     } catch (e: any) {
       alert(e.response?.data?.detail || "Lỗi cấu hình Live Mode");
+    }
+  };
+
+  const fetchReport = async () => {
+    setReportLoading(true);
+    try {
+      const res = await axios.get(`${API}/api/trading/report`);
+      setReportData(res.data);
+    } catch {}
+    setReportLoading(false);
+  };
+
+  const handleReset = async () => {
+    if (window.confirm(`Bạn có chắc chắn muốn Reset ví giả lập về $${resetAmount.toLocaleString()} USDT và XÓA SẠCH toàn bộ lịch sử giao dịch?`)) {
+      try {
+        await axios.post(`${API}/api/trading/reset`, { amount: resetAmount });
+        fetchReport();
+        const t = await axios.get(`${API}/api/trading`);
+        setTrading(t.data);
+        alert("Reset ví giả lập thành công!");
+      } catch (e: any) {
+        alert(e.response?.data?.detail || "Lỗi reset ví");
+      }
     }
   };
 
@@ -388,6 +417,15 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
               className="px-5 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:shadow-[0_0_20px_rgba(99,102,241,0.3)]"
             >
               💰 Nạp / Rút
+            </button>
+            <button
+              onClick={() => {
+                setShowReportPanel(!showReportPanel);
+                if (!showReportPanel) fetchReport();
+              }}
+              className="px-5 py-3 rounded-xl font-bold text-sm transition-all cursor-pointer bg-gradient-to-r from-teal-500 to-emerald-600 text-white hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+            >
+              📊 Báo Cáo & Reset
             </button>
             <button
               onClick={toggleLiveMode}
@@ -572,6 +610,137 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
                 </div>
               </div>
             </div>
+          </div>
+        )}
+        {/* Report & Reset Panel */}
+        {showReportPanel && (
+          <div className="bg-brand-surface border border-[#1C2541] rounded-xl p-5 mt-4">
+            <div className="flex items-center justify-between mb-4 border-b border-[#1C2541] pb-3">
+              <h3 className="text-white font-bold text-base flex items-center">
+                📊 BÁO CÁO HIỆU SUẤT THỬ NGHIỆM
+              </h3>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={fetchReport}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#0B132B] border border-[#1C2541] text-teal-400 hover:bg-[#1C2541] cursor-pointer"
+                  disabled={reportLoading}
+                >
+                  🔄 Cập Nhật
+                </button>
+                <button
+                  onClick={() => setShowReportPanel(false)}
+                  className="p-1 rounded-lg hover:bg-[#1C2541] cursor-pointer"
+                >
+                  <X size={16} className="text-brand-muted" />
+                </button>
+              </div>
+            </div>
+
+            {reportLoading ? (
+              <p className="text-center py-6 text-brand-muted text-sm animate-pulse">⏳ Đang tải báo cáo...</p>
+            ) : reportData ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="bg-[#0B132B] p-3.5 rounded-xl border border-[#1C2541]">
+                      <span className="text-[10px] text-brand-muted block uppercase font-bold">Thời gian chạy</span>
+                      <span className="text-white font-mono font-bold text-lg">{reportData.days_elapsed} ngày</span>
+                    </div>
+                    <div className="bg-[#0B132B] p-3.5 rounded-xl border border-[#1C2541]">
+                      <span className="text-[10px] text-brand-muted block uppercase font-bold">Lợi nhuận ròng (ROI)</span>
+                      <span className={`font-mono font-bold text-lg ${reportData.net_pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {reportData.net_pnl >= 0 ? "+" : ""}{reportData.net_pnl?.toFixed(2)} USDT ({reportData.roi_pct >= 0 ? "+" : ""}{reportData.roi_pct}%)
+                      </span>
+                    </div>
+                    <div className="bg-[#0B132B] p-3.5 rounded-xl border border-[#1C2541]">
+                      <span className="text-[10px] text-brand-muted block uppercase font-bold">Vốn ban đầu</span>
+                      <span className="text-white font-mono font-bold text-lg">${reportData.initial_balance?.toLocaleString()}</span>
+                    </div>
+                    <div className="bg-[#0B132B] p-3.5 rounded-xl border border-[#1C2541]">
+                      <span className="text-[10px] text-brand-muted block uppercase font-bold">Số dư hiện tại</span>
+                      <span className="text-white font-mono font-bold text-lg">${reportData.current_balance?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-[#0B132B] p-4 rounded-xl border border-[#1C2541] space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-brand-muted">Tổng số lệnh đi:</span>
+                      <span className="text-white font-bold">{reportData.total_trades}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-brand-muted">Tỷ lệ thắng (Win Rate):</span>
+                      <span className="text-blue-400 font-bold">{reportData.win_rate}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-brand-muted">Lệnh thắng lớn nhất:</span>
+                      <span className="text-green-400 font-bold">${reportData.largest_win} USDT</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-brand-muted">Lệnh thua lớn nhất:</span>
+                      <span className="text-red-400 font-bold">${reportData.largest_loss} USDT</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-brand-muted">Lệnh LONG:</span>
+                      <span className="text-white font-bold">{reportData.long_stats?.count} (WR: {reportData.long_stats?.win_rate}%)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-brand-muted">Lệnh SHORT:</span>
+                      <span className="text-white font-bold">{reportData.short_stats?.count} (WR: {reportData.short_stats?.win_rate}%)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col justify-between">
+                  <div>
+                    <h4 className="text-[11px] text-brand-muted uppercase font-bold mb-3">Hiệu suất theo từng Coin (BTC/ETH/SOL)</h4>
+                    <div className="space-y-2">
+                      {reportData.coin_breakdown && reportData.coin_breakdown.length > 0 ? (
+                        reportData.coin_breakdown.map((c: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between bg-[#0B132B] px-4 py-3 rounded-xl border border-[#1C2541]">
+                            <span className="text-white font-bold">{c.coin}</span>
+                            <div className="text-right">
+                              <span className={`font-mono font-bold block ${c.pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                                {c.pnl >= 0 ? "+" : ""}{c.pnl} USDT
+                              </span>
+                              <span className="text-[10px] text-brand-muted block">
+                                {c.total_trades} lệnh (WR: {c.win_rate}%)
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-center py-4 text-xs text-brand-muted">Chưa có giao dịch nào được ghi nhận cho BTC, ETH, SOL.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 mt-4">
+                    <h4 className="text-red-400 font-bold text-xs uppercase mb-2">🔄 BẮT ĐẦU CHU KỲ KIỂM THỬ MỚI</h4>
+                    <p className="text-brand-muted text-[11px] mb-3">Xóa sạch toàn bộ lịch sử, thống kê cũ để chạy chu kỳ test mới (1 tuần / 1 tháng).</p>
+                    <div className="flex space-x-2">
+                      <div className="relative flex-1">
+                        <input
+                          type="number"
+                          value={resetAmount}
+                          onChange={(e) => setResetAmount(Number(e.target.value))}
+                          placeholder="Số vốn test (USDT)..."
+                          className="w-full bg-[#0B132B] border border-[#1C2541] rounded-lg pl-3 pr-12 py-2 text-white text-xs focus:border-red-500 outline-none font-mono"
+                        />
+                        <span className="absolute right-3 top-2 text-[10px] text-brand-muted font-bold">USDT</span>
+                      </div>
+                      <button
+                        onClick={handleReset}
+                        className="px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)] text-white text-xs font-bold rounded-lg cursor-pointer transition-all"
+                      >
+                        RESET VÍ
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-center py-4 text-brand-muted text-xs">Không có dữ liệu báo cáo.</p>
+            )}
           </div>
         )}
 
