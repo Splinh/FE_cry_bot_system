@@ -679,16 +679,136 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
 
             {/* Entry/SL/TP - luon hien nhu scalping card */}
             {taResult.sl && (() => {
-              const slValue = customSl || taResult.sl;
-              const slPct = customSl ? Math.abs((slValue - taResult.price) / taResult.price * 100).toFixed(2) : taResult.sl_pct;
-              const maxLoss = customSl ? Math.abs((slValue - taResult.price) / taResult.price * 100 * (taResult.leverage || taLeverage)).toFixed(1) : taResult.max_loss;
-
-              const tpValue = customTp || taResult.tp1;
-              const tpPct = customTp ? Math.abs((tpValue - taResult.price) / taResult.price * 100).toFixed(2) : taResult.tp1_pct;
-              const potRoi = customTp ? Math.abs((tpValue - taResult.price) / taResult.price * 100 * (taResult.leverage || taLeverage)).toFixed(1) : taResult.potential_roi;
-              
               const isLong = (taResult.trade_direction || taResult.direction) !== "SHORT";
               const atrVal = taResult.atr || 0;
+              const entryPrice = taResult.price;
+
+              // Generate candidate SL list
+              let slCandidates: { label: string; price: number }[] = [];
+              slCandidates.push({ label: "Mức 1: Cắt lỗ ATR (Mặc định)", price: taResult.sl });
+
+              if (isLong) {
+                if (taResult.support > 0) {
+                  slCandidates.push({ label: "Mức 2: Dưới Hỗ trợ S1 (An toàn)", price: Number((taResult.support - atrVal * 0.2).toFixed(4)) });
+                }
+                if (taResult.support2 > 0) {
+                  slCandidates.push({ label: "Mức 3: Dưới Hỗ trợ S2 (Rất an toàn)", price: Number((taResult.support2 - atrVal * 0.2).toFixed(4)) });
+                }
+                if (taResult.support3 > 0) {
+                  slCandidates.push({ label: "Mức 4: Dưới Hỗ trợ S3 (Hạn chế quét râu)", price: Number((taResult.support3 - atrVal * 0.2).toFixed(4)) });
+                }
+                if (taResult.fib_618 > 0) {
+                  slCandidates.push({ label: "Mức 5: Dưới Fibonacci 61.8% (Cản cứng)", price: Number((taResult.fib_618 - atrVal * 0.1).toFixed(4)) });
+                }
+                if (taResult.bb_lower > 0) {
+                  slCandidates.push({ label: "Mức 6: Dưới Bollinger Band Lower", price: Number((taResult.bb_lower - atrVal * 0.1).toFixed(4)) });
+                }
+              } else {
+                if (taResult.resistance > 0) {
+                  slCandidates.push({ label: "Mức 2: Trên Kháng cự R1 (An toàn)", price: Number((taResult.resistance + atrVal * 0.2).toFixed(4)) });
+                }
+                if (taResult.resistance2 > 0) {
+                  slCandidates.push({ label: "Mức 3: Trên Kháng cự R2 (Rất an toàn)", price: Number((taResult.resistance2 + atrVal * 0.2).toFixed(4)) });
+                }
+                if (taResult.resistance3 > 0) {
+                  slCandidates.push({ label: "Mức 4: Trên Kháng cự R3 (Hạn chế quét râu)", price: Number((taResult.resistance3 + atrVal * 0.2).toFixed(4)) });
+                }
+                if (taResult.bb_upper > 0) {
+                  slCandidates.push({ label: "Mức 5: Trên Bollinger Band Upper", price: Number((taResult.bb_upper + atrVal * 0.1).toFixed(4)) });
+                }
+              }
+
+              // Filter & Sort SL candidates:
+              // For LONG: SL must be < entryPrice. Sort descending (closest to entryPrice first).
+              // For SHORT: SL must be > entryPrice. Sort ascending (closest to entryPrice first).
+              let uniqueSl = new Map<number, { label: string; price: number }>();
+              slCandidates.forEach(cand => {
+                if (cand.price > 0 && (isLong ? cand.price < entryPrice : cand.price > entryPrice)) {
+                  const rp = Number(cand.price.toFixed(4));
+                  if (!uniqueSl.has(rp)) {
+                    uniqueSl.set(rp, cand);
+                  }
+                }
+              });
+              const sortedSl = Array.from(uniqueSl.values()).sort((a, b) => {
+                return isLong ? (b.price - a.price) : (a.price - b.price);
+              });
+
+              // Generate candidate TP list
+              let tpCandidates: { label: string; price: number }[] = [];
+              tpCandidates.push({ label: "Mục tiêu 1: TP1 Khuyến nghị (Mặc định)", price: taResult.tp1 });
+
+              if (isLong) {
+                if (taResult.resistance > 0) {
+                  tpCandidates.push({ label: "Mục tiêu 2: Cản Kháng cự R1", price: taResult.resistance });
+                }
+                if (taResult.resistance2 > 0) {
+                  tpCandidates.push({ label: "Mục tiêu 3: Cản Kháng cự R2", price: taResult.resistance2 });
+                }
+                if (taResult.resistance3 > 0) {
+                  tpCandidates.push({ label: "Mục tiêu 4: Cản Kháng cự R3 (Kỳ vọng)", price: taResult.resistance3 });
+                }
+                if (taResult.bb_upper > 0) {
+                  tpCandidates.push({ label: "Mục tiêu 5: Bollinger Band Upper", price: taResult.bb_upper });
+                }
+              } else {
+                if (taResult.support > 0) {
+                  tpCandidates.push({ label: "Mục tiêu 2: Cản Hỗ trợ S1", price: taResult.support });
+                }
+                if (taResult.support2 > 0) {
+                  tpCandidates.push({ label: "Mục tiêu 3: Cản Hỗ trợ S2", price: taResult.support2 });
+                }
+                if (taResult.support3 > 0) {
+                  tpCandidates.push({ label: "Mục tiêu 4: Cản Hỗ trợ S3 (Kỳ vọng)", price: taResult.support3 });
+                }
+                if (taResult.bb_lower > 0) {
+                  tpCandidates.push({ label: "Mục tiêu 5: Bollinger Band Lower", price: taResult.bb_lower });
+                }
+              }
+
+              // Filter & Sort TP candidates:
+              // For LONG: TP must be > entryPrice. Sort ascending (closest to entryPrice first).
+              // For SHORT: TP must be < entryPrice. Sort descending (closest to entryPrice first).
+              let uniqueTp = new Map<number, { label: string; price: number }>();
+              tpCandidates.forEach(cand => {
+                if (cand.price > 0 && (isLong ? cand.price > entryPrice : cand.price < entryPrice)) {
+                  const rp = Number(cand.price.toFixed(4));
+                  if (!uniqueTp.has(rp)) {
+                    uniqueTp.set(rp, cand);
+                  }
+                }
+              });
+              const sortedTp = Array.from(uniqueTp.values()).sort((a, b) => {
+                return isLong ? (a.price - b.price) : (b.price - a.price);
+              });
+
+              // Re-index labels for SL
+              const finalSls = sortedSl.map((item, index) => {
+                const isDefault = item.price === taResult.sl;
+                const cleanLabel = item.label.includes(":") ? item.label.substring(item.label.indexOf(":") + 1).trim() : item.label;
+                return {
+                  ...item,
+                  displayLabel: `Mức ${index + 1}: ${isDefault ? "Cắt lỗ ATR (Mặc định)" : cleanLabel}`
+                };
+              });
+
+              // Re-index labels for TP
+              const finalTps = sortedTp.map((item, index) => {
+                const isDefault = item.price === taResult.tp1;
+                const cleanLabel = item.label.includes(":") ? item.label.substring(item.label.indexOf(":") + 1).trim() : item.label;
+                return {
+                  ...item,
+                  displayLabel: `Mục tiêu ${index + 1}: ${isDefault ? "TP1 Khuyến nghị (Mặc định)" : cleanLabel}`
+                };
+              });
+
+              const slValue = customSl || taResult.sl;
+              const slPct = customSl ? Math.abs((slValue - entryPrice) / entryPrice * 100).toFixed(2) : taResult.sl_pct;
+              const maxLoss = customSl ? Math.abs((slValue - entryPrice) / entryPrice * 100 * (taResult.leverage || taLeverage)).toFixed(1) : taResult.max_loss;
+
+              const tpValue = customTp || taResult.tp1;
+              const tpPct = customTp ? Math.abs((tpValue - entryPrice) / entryPrice * 100).toFixed(2) : taResult.tp1_pct;
+              const potRoi = customTp ? Math.abs((tpValue - entryPrice) / entryPrice * 100 * (taResult.leverage || taLeverage)).toFixed(1) : taResult.potential_roi;
 
               return (
                 <>
@@ -748,119 +868,20 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
                           {isLong ? "📉 Vùng hỗ trợ & Mức SL đề xuất (LONG)" : "📈 Vùng kháng cự & Mức SL đề xuất (SHORT)"}
                         </span>
                         <div className="space-y-1.5">
-                          {/* Option 1: Default ATR */}
-                          <button
-                            onClick={() => setCustomSl(taResult.sl)}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                              customSl === taResult.sl || customSl === null
-                                ? "bg-red-500/10 border-red-500/50 text-red-300"
-                                : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
-                            }`}
-                          >
-                            <span className="font-semibold">Mức 1: Cắt lỗ ATR (Mặc định của bot)</span>
-                            <span className="font-bold text-red-400">${taResult.sl?.toLocaleString()}</span>
-                          </button>
-
-                          {isLong ? (
-                            <>
-                              {/* Long SL options based on support */}
-                              {taResult.support > 0 && (
-                                <button
-                                  onClick={() => setCustomSl(Number((taResult.support - atrVal * 0.2).toFixed(4)))}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                                    customSl === Number((taResult.support - atrVal * 0.2).toFixed(4))
-                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
-                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
-                                  }`}
-                                >
-                                  <span>Mức 2: Dưới Hỗ trợ S1 (An toàn)</span>
-                                  <span className="font-bold text-red-400">${(taResult.support - atrVal * 0.2).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
-                                </button>
-                              )}
-                              {taResult.support2 > 0 && (
-                                <button
-                                  onClick={() => setCustomSl(Number((taResult.support2 - atrVal * 0.2).toFixed(4)))}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                                    customSl === Number((taResult.support2 - atrVal * 0.2).toFixed(4))
-                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
-                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
-                                  }`}
-                                >
-                                  <span>Mức 3: Dưới Hỗ trợ S2 (Rất an toàn)</span>
-                                  <span className="font-bold text-red-400">${(taResult.support2 - atrVal * 0.2).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
-                                </button>
-                              )}
-                              {taResult.support3 > 0 && (
-                                <button
-                                  onClick={() => setCustomSl(Number((taResult.support3 - atrVal * 0.2).toFixed(4)))}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                                    customSl === Number((taResult.support3 - atrVal * 0.2).toFixed(4))
-                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
-                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
-                                  }`}
-                                >
-                                  <span>Mức 4: Dưới Hỗ trợ S3 (Hạn chế quét râu)</span>
-                                  <span className="font-bold text-red-400">${(taResult.support3 - atrVal * 0.2).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
-                                </button>
-                              )}
-                              {taResult.fib_618 > 0 && (
-                                <button
-                                  onClick={() => setCustomSl(Number((taResult.fib_618 - atrVal * 0.1).toFixed(4)))}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                                    customSl === Number((taResult.fib_618 - atrVal * 0.1).toFixed(4))
-                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
-                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
-                                  }`}
-                                >
-                                  <span>Mức 5: Dưới Fibonacci 61.8% (Cản cứng)</span>
-                                  <span className="font-bold text-red-400">${(taResult.fib_618 - atrVal * 0.1).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
-                                </button>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              {/* Short SL options based on resistance */}
-                              {taResult.resistance > 0 && (
-                                <button
-                                  onClick={() => setCustomSl(Number((taResult.resistance + atrVal * 0.2).toFixed(4)))}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                                    customSl === Number((taResult.resistance + atrVal * 0.2).toFixed(4))
-                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
-                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
-                                  }`}
-                                >
-                                  <span>Mức 2: Trên Kháng cự R1 (An toàn)</span>
-                                  <span className="font-bold text-red-400">${(taResult.resistance + atrVal * 0.2).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
-                                </button>
-                              )}
-                              {taResult.resistance2 > 0 && (
-                                <button
-                                  onClick={() => setCustomSl(Number((taResult.resistance2 + atrVal * 0.2).toFixed(4)))}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                                    customSl === Number((taResult.resistance2 + atrVal * 0.2).toFixed(4))
-                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
-                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
-                                  }`}
-                                >
-                                  <span>Mức 3: Trên Kháng cự R2 (Rất an toàn)</span>
-                                  <span className="font-bold text-red-400">${(taResult.resistance2 + atrVal * 0.2).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
-                                </button>
-                              )}
-                              {taResult.resistance3 > 0 && (
-                                <button
-                                  onClick={() => setCustomSl(Number((taResult.resistance3 + atrVal * 0.2).toFixed(4)))}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                                    customSl === Number((taResult.resistance3 + atrVal * 0.2).toFixed(4))
-                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
-                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
-                                  }`}
-                                >
-                                  <span>Mức 4: Trên Kháng cự R3 (Hạn chế quét râu)</span>
-                                  <span className="font-bold text-red-400">${(taResult.resistance3 + atrVal * 0.2).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
-                                </button>
-                              )}
-                            </>
-                          )}
+                          {finalSls.map((item, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setCustomSl(item.price)}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                (customSl === item.price) || (customSl === null && item.price === taResult.sl)
+                                  ? "bg-red-500/10 border-red-500/50 text-red-300"
+                                  : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
+                              }`}
+                            >
+                              <span className="font-semibold">{item.displayLabel}</span>
+                              <span className="font-bold text-red-400">${item.price.toLocaleString(undefined, {maximumFractionDigits:4})}</span>
+                            </button>
+                          ))}
                         </div>
                       </div>
 
@@ -870,106 +891,20 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
                           {isLong ? "📈 Vùng kháng cự & Mức TP đề xuất (LONG)" : "📉 Vùng hỗ trợ & Mức TP đề xuất (SHORT)"}
                         </span>
                         <div className="space-y-1.5">
-                          {/* Option 1: Default TP1 */}
-                          <button
-                            onClick={() => setCustomTp(taResult.tp1)}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                              customTp === taResult.tp1 || customTp === null
-                                ? "bg-green-500/10 border-green-500/50 text-green-300"
-                                : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
-                            }`}
-                          >
-                            <span className="font-semibold">Mục tiêu 1: TP1 Khuyến nghị (Mặc định)</span>
-                            <span className="font-bold text-green-400">${taResult.tp1?.toLocaleString()}</span>
-                          </button>
-
-                          {isLong ? (
-                            <>
-                              {/* Long TP options based on resistance */}
-                              {taResult.resistance > 0 && (
-                                <button
-                                  onClick={() => setCustomTp(taResult.resistance)}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                                    customTp === taResult.resistance
-                                      ? "bg-green-500/10 border-green-500/50 text-green-300"
-                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
-                                  }`}
-                                >
-                                  <span>Mục tiêu 2: Cản Kháng cự R1</span>
-                                  <span className="font-bold text-green-400">${taResult.resistance?.toLocaleString()}</span>
-                                </button>
-                              )}
-                              {taResult.resistance2 > 0 && (
-                                <button
-                                  onClick={() => setCustomTp(taResult.resistance2)}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                                    customTp === taResult.resistance2
-                                      ? "bg-green-500/10 border-green-500/50 text-green-300"
-                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
-                                  }`}
-                                >
-                                  <span>Mục tiêu 3: Cản Kháng cự R2</span>
-                                  <span className="font-bold text-green-400">${taResult.resistance2?.toLocaleString()}</span>
-                                </button>
-                              )}
-                              {taResult.resistance3 > 0 && (
-                                <button
-                                  onClick={() => setCustomTp(taResult.resistance3)}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                                    customTp === taResult.resistance3
-                                      ? "bg-green-500/10 border-green-500/50 text-green-300"
-                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
-                                  }`}
-                                >
-                                  <span>Mục tiêu 4: Cản Kháng cự R3 (Kỳ vọng)</span>
-                                  <span className="font-bold text-green-400">${taResult.resistance3?.toLocaleString()}</span>
-                                </button>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              {/* Short TP options based on support */}
-                              {taResult.support > 0 && (
-                                <button
-                                  onClick={() => setCustomTp(taResult.support)}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                                    customTp === taResult.support
-                                      ? "bg-green-500/10 border-green-500/50 text-green-300"
-                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
-                                  }`}
-                                >
-                                  <span>Mục tiêu 2: Cản Hỗ trợ S1</span>
-                                  <span className="font-bold text-green-400">${taResult.support?.toLocaleString()}</span>
-                                </button>
-                              )}
-                              {taResult.support2 > 0 && (
-                                <button
-                                  onClick={() => setCustomTp(taResult.support2)}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                                    customTp === taResult.support2
-                                      ? "bg-green-500/10 border-green-500/50 text-green-300"
-                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
-                                  }`}
-                                >
-                                  <span>Mục tiêu 3: Cản Hỗ trợ S2</span>
-                                  <span className="font-bold text-green-400">${taResult.support2?.toLocaleString()}</span>
-                                </button>
-                              )}
-                              {taResult.support3 > 0 && (
-                                <button
-                                  onClick={() => setCustomTp(taResult.support3)}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
-                                    customTp === taResult.support3
-                                      ? "bg-green-500/10 border-green-500/50 text-green-300"
-                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
-                                  }`}
-                                >
-                                  <span>Mục tiêu 4: Cản Hỗ trợ S3 (Kỳ vọng)</span>
-                                  <span className="font-bold text-green-400">${taResult.support3?.toLocaleString()}</span>
-                                </button>
-                              )}
-                            </>
-                          )}
+                          {finalTps.map((item, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setCustomTp(item.price)}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                (customTp === item.price) || (customTp === null && item.price === taResult.tp1)
+                                  ? "bg-green-500/10 border-green-500/50 text-green-300"
+                                  : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
+                              }`}
+                            >
+                              <span className="font-semibold">{item.displayLabel}</span>
+                              <span className="font-bold text-green-400">${item.price.toLocaleString(undefined, {maximumFractionDigits:4})}</span>
+                            </button>
+                          ))}
                         </div>
                       </div>
                     </div>
