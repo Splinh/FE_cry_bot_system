@@ -60,6 +60,7 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
     "BTC",
     "ETH",
     "SOL",
+    "PAXG",
     "BNB",
     "XRP",
     "DOGE",
@@ -165,7 +166,11 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
   }, []);
 
   const selectToken = (t: string) => {
-    setTaCoin(t.toUpperCase());
+    let clean = t.toUpperCase();
+    if (clean === "GOLD" || clean === "XAU") {
+      clean = "PAXG";
+    }
+    setTaCoin(clean);
     setTokenSearch("");
     setShowSearch(false);
   };

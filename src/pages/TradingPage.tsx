@@ -21,6 +21,7 @@ const POPULAR_TOKENS = [
   "BTC",
   "ETH",
   "SOL",
+  "PAXG",
   "BNB",
   "XRP",
   "DOGE",
@@ -308,7 +309,11 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
   };
 
   const selectToken = (t: string) => {
-    setCoin(t.toUpperCase());
+    let clean = t.toUpperCase();
+    if (clean === "GOLD" || clean === "XAU") {
+      clean = "PAXG";
+    }
+    setCoin(clean);
     setTokenSearch("");
     setShowSearch(false);
   };
