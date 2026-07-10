@@ -35,6 +35,14 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
   const [tradeLoading, setTradeLoading] = useState(false);
   const [tradeMsg, setTradeMsg] = useState("");
   const [tradeVolume, setTradeVolume] = useState(100);
+  const [customSl, setCustomSl] = useState<number | null>(null);
+  const [customTp, setCustomTp] = useState<number | null>(null);
+
+  // Reset custom levels on coin/timeframe changes
+  useEffect(() => {
+    setCustomSl(null);
+    setCustomTp(null);
+  }, [taCoin, taTimeframe, taMarket]);
 
   // Limit Order from analysis
   const [limitLoading, setLimitLoading] = useState(false);
@@ -209,6 +217,8 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
         leverage,
         wallet_id: selectedWallet?.id || null,
         wallet_label: selectedWallet?.label || "",
+        custom_sl: customSl,
+        custom_tp: customTp,
       });
       if (res.data.success) {
         const wName = selectedWallet ? ` | 👛 ${selectedWallet.label}` : "";
@@ -668,29 +678,305 @@ export default function AnalysisPage({ onMenuToggle }: { onMenuToggle?: () => vo
             )}
 
             {/* Entry/SL/TP - luon hien nhu scalping card */}
-            {taResult.sl && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-4">
-                <LevelCard
-                  label="ENTRY"
-                  value={taResult.entry || taResult.price}
-                  color="blue"
-                />
-                <LevelCard
-                  label={`SL (-${taResult.sl_pct}%)`}
-                  value={taResult.sl}
-                  color="red"
-                  sub={`Loss: -${taResult.max_loss}%`}
-                />
-                <LevelCard
-                  label={`TP1 (+${taResult.tp1_pct}%)`}
-                  value={taResult.tp1}
-                  color="green"
-                  sub={`ROI: +${taResult.potential_roi}%`}
-                />
-                <LevelCard label="TP2" value={taResult.tp2} color="green" />
-                <LevelCard label="TP3" value={taResult.tp3} color="green" />
-              </div>
-            )}
+            {taResult.sl && (() => {
+              const slValue = customSl || taResult.sl;
+              const slPct = customSl ? Math.abs((slValue - taResult.price) / taResult.price * 100).toFixed(2) : taResult.sl_pct;
+              const maxLoss = customSl ? Math.abs((slValue - taResult.price) / taResult.price * 100 * (taResult.leverage || taLeverage)).toFixed(1) : taResult.max_loss;
+
+              const tpValue = customTp || taResult.tp1;
+              const tpPct = customTp ? Math.abs((tpValue - taResult.price) / taResult.price * 100).toFixed(2) : taResult.tp1_pct;
+              const potRoi = customTp ? Math.abs((tpValue - taResult.price) / taResult.price * 100 * (taResult.leverage || taLeverage)).toFixed(1) : taResult.potential_roi;
+              
+              const isLong = (taResult.trade_direction || taResult.direction) !== "SHORT";
+              const atrVal = taResult.atr || 0;
+
+              return (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-4">
+                    <LevelCard
+                      label="ENTRY"
+                      value={taResult.entry || taResult.price}
+                      color="blue"
+                    />
+                    <LevelCard
+                      label={customSl ? `SL TÙY CHỌN (-${slPct}%)` : `SL (-${taResult.sl_pct}%)`}
+                      value={slValue}
+                      color="red"
+                      sub={`Loss: -${maxLoss}%`}
+                    />
+                    <LevelCard
+                      label={customTp ? `TP1 TÙY CHỌN (+${tpPct}%)` : `TP1 (+${taResult.tp1_pct}%)`}
+                      value={tpValue}
+                      color="green"
+                      sub={`ROI: +${potRoi}%`}
+                    />
+                    <LevelCard 
+                      label="TP2" 
+                      value={customTp ? (isLong ? Number((tpValue + Math.abs(tpValue - taResult.price) * 0.5).toFixed(4)) : Number((tpValue - Math.abs(tpValue - taResult.price) * 0.5).toFixed(4))) : taResult.tp2} 
+                      color="green" 
+                    />
+                    <LevelCard 
+                      label="TP3" 
+                      value={customTp ? (isLong ? Number((tpValue + Math.abs(tpValue - taResult.price) * 1.0).toFixed(4)) : Number((tpValue - Math.abs(tpValue - taResult.price) * 1.0).toFixed(4))) : taResult.tp3} 
+                      color="green" 
+                    />
+                  </div>
+
+                  {/* Vùng Cắt Lỗ & Chốt Lời Đa Tầng Tùy Chọn */}
+                  <div className="bg-[#0B132B]/50 border border-[#1C2541] rounded-xl p-4 mb-4">
+                    <div className="flex items-center justify-between mb-3 border-b border-[#1C2541] pb-2">
+                      <h4 className="text-xs font-bold text-brand-accent uppercase tracking-wider flex items-center">
+                        🛡️ Phân Tích Kháng Cự & Cắt Lỗ Tùy Chọn ({isLong ? "LONG" : "SHORT"})
+                      </h4>
+                      {(customSl !== null || customTp !== null) && (
+                        <button
+                          onClick={() => {
+                            setCustomSl(null);
+                            setCustomTp(null);
+                          }}
+                          className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded hover:bg-red-500 hover:text-white transition-all cursor-pointer font-bold"
+                        >
+                          Khôi phục mặc định
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Column 1: SL Customization */}
+                      <div>
+                        <span className="text-[10px] text-brand-muted uppercase font-bold block mb-2">
+                          {isLong ? "📉 Vùng hỗ trợ & Mức SL đề xuất (LONG)" : "📈 Vùng kháng cự & Mức SL đề xuất (SHORT)"}
+                        </span>
+                        <div className="space-y-1.5">
+                          {/* Option 1: Default ATR */}
+                          <button
+                            onClick={() => setCustomSl(taResult.sl)}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                              customSl === taResult.sl || customSl === null
+                                ? "bg-red-500/10 border-red-500/50 text-red-300"
+                                : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
+                            }`}
+                          >
+                            <span className="font-semibold">Mức 1: Cắt lỗ ATR (Mặc định của bot)</span>
+                            <span className="font-bold text-red-400">${taResult.sl?.toLocaleString()}</span>
+                          </button>
+
+                          {isLong ? (
+                            <>
+                              {/* Long SL options based on support */}
+                              {taResult.support > 0 && (
+                                <button
+                                  onClick={() => setCustomSl(Number((taResult.support - atrVal * 0.2).toFixed(4)))}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    customSl === Number((taResult.support - atrVal * 0.2).toFixed(4))
+                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
+                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
+                                  }`}
+                                >
+                                  <span>Mức 2: Dưới Hỗ trợ S1 (An toàn)</span>
+                                  <span className="font-bold text-red-400">${(taResult.support - atrVal * 0.2).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
+                                </button>
+                              )}
+                              {taResult.support2 > 0 && (
+                                <button
+                                  onClick={() => setCustomSl(Number((taResult.support2 - atrVal * 0.2).toFixed(4)))}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    customSl === Number((taResult.support2 - atrVal * 0.2).toFixed(4))
+                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
+                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
+                                  }`}
+                                >
+                                  <span>Mức 3: Dưới Hỗ trợ S2 (Rất an toàn)</span>
+                                  <span className="font-bold text-red-400">${(taResult.support2 - atrVal * 0.2).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
+                                </button>
+                              )}
+                              {taResult.support3 > 0 && (
+                                <button
+                                  onClick={() => setCustomSl(Number((taResult.support3 - atrVal * 0.2).toFixed(4)))}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    customSl === Number((taResult.support3 - atrVal * 0.2).toFixed(4))
+                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
+                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
+                                  }`}
+                                >
+                                  <span>Mức 4: Dưới Hỗ trợ S3 (Hạn chế quét râu)</span>
+                                  <span className="font-bold text-red-400">${(taResult.support3 - atrVal * 0.2).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
+                                </button>
+                              )}
+                              {taResult.fib_618 > 0 && (
+                                <button
+                                  onClick={() => setCustomSl(Number((taResult.fib_618 - atrVal * 0.1).toFixed(4)))}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    customSl === Number((taResult.fib_618 - atrVal * 0.1).toFixed(4))
+                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
+                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
+                                  }`}
+                                >
+                                  <span>Mức 5: Dưới Fibonacci 61.8% (Cản cứng)</span>
+                                  <span className="font-bold text-red-400">${(taResult.fib_618 - atrVal * 0.1).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              {/* Short SL options based on resistance */}
+                              {taResult.resistance > 0 && (
+                                <button
+                                  onClick={() => setCustomSl(Number((taResult.resistance + atrVal * 0.2).toFixed(4)))}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    customSl === Number((taResult.resistance + atrVal * 0.2).toFixed(4))
+                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
+                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
+                                  }`}
+                                >
+                                  <span>Mức 2: Trên Kháng cự R1 (An toàn)</span>
+                                  <span className="font-bold text-red-400">${(taResult.resistance + atrVal * 0.2).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
+                                </button>
+                              )}
+                              {taResult.resistance2 > 0 && (
+                                <button
+                                  onClick={() => setCustomSl(Number((taResult.resistance2 + atrVal * 0.2).toFixed(4)))}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    customSl === Number((taResult.resistance2 + atrVal * 0.2).toFixed(4))
+                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
+                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
+                                  }`}
+                                >
+                                  <span>Mức 3: Trên Kháng cự R2 (Rất an toàn)</span>
+                                  <span className="font-bold text-red-400">${(taResult.resistance2 + atrVal * 0.2).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
+                                </button>
+                              )}
+                              {taResult.resistance3 > 0 && (
+                                <button
+                                  onClick={() => setCustomSl(Number((taResult.resistance3 + atrVal * 0.2).toFixed(4)))}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    customSl === Number((taResult.resistance3 + atrVal * 0.2).toFixed(4))
+                                      ? "bg-red-500/10 border-red-500/50 text-red-300"
+                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-red-500/30"
+                                  }`}
+                                >
+                                  <span>Mức 4: Trên Kháng cự R3 (Hạn chế quét râu)</span>
+                                  <span className="font-bold text-red-400">${(taResult.resistance3 + atrVal * 0.2).toLocaleString(undefined, {maximumFractionDigits:4})}</span>
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Column 2: TP Customization */}
+                      <div>
+                        <span className="text-[10px] text-brand-muted uppercase font-bold block mb-2">
+                          {isLong ? "📈 Vùng kháng cự & Mức TP đề xuất (LONG)" : "📉 Vùng hỗ trợ & Mức TP đề xuất (SHORT)"}
+                        </span>
+                        <div className="space-y-1.5">
+                          {/* Option 1: Default TP1 */}
+                          <button
+                            onClick={() => setCustomTp(taResult.tp1)}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                              customTp === taResult.tp1 || customTp === null
+                                ? "bg-green-500/10 border-green-500/50 text-green-300"
+                                : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
+                            }`}
+                          >
+                            <span className="font-semibold">Mục tiêu 1: TP1 Khuyến nghị (Mặc định)</span>
+                            <span className="font-bold text-green-400">${taResult.tp1?.toLocaleString()}</span>
+                          </button>
+
+                          {isLong ? (
+                            <>
+                              {/* Long TP options based on resistance */}
+                              {taResult.resistance > 0 && (
+                                <button
+                                  onClick={() => setCustomTp(taResult.resistance)}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    customTp === taResult.resistance
+                                      ? "bg-green-500/10 border-green-500/50 text-green-300"
+                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
+                                  }`}
+                                >
+                                  <span>Mục tiêu 2: Cản Kháng cự R1</span>
+                                  <span className="font-bold text-green-400">${taResult.resistance?.toLocaleString()}</span>
+                                </button>
+                              )}
+                              {taResult.resistance2 > 0 && (
+                                <button
+                                  onClick={() => setCustomTp(taResult.resistance2)}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    customTp === taResult.resistance2
+                                      ? "bg-green-500/10 border-green-500/50 text-green-300"
+                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
+                                  }`}
+                                >
+                                  <span>Mục tiêu 3: Cản Kháng cự R2</span>
+                                  <span className="font-bold text-green-400">${taResult.resistance2?.toLocaleString()}</span>
+                                </button>
+                              )}
+                              {taResult.resistance3 > 0 && (
+                                <button
+                                  onClick={() => setCustomTp(taResult.resistance3)}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    customTp === taResult.resistance3
+                                      ? "bg-green-500/10 border-green-500/50 text-green-300"
+                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
+                                  }`}
+                                >
+                                  <span>Mục tiêu 4: Cản Kháng cự R3 (Kỳ vọng)</span>
+                                  <span className="font-bold text-green-400">${taResult.resistance3?.toLocaleString()}</span>
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              {/* Short TP options based on support */}
+                              {taResult.support > 0 && (
+                                <button
+                                  onClick={() => setCustomTp(taResult.support)}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    customTp === taResult.support
+                                      ? "bg-green-500/10 border-green-500/50 text-green-300"
+                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
+                                  }`}
+                                >
+                                  <span>Mục tiêu 2: Cản Hỗ trợ S1</span>
+                                  <span className="font-bold text-green-400">${taResult.support?.toLocaleString()}</span>
+                                </button>
+                              )}
+                              {taResult.support2 > 0 && (
+                                <button
+                                  onClick={() => setCustomTp(taResult.support2)}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    customTp === taResult.support2
+                                      ? "bg-green-500/10 border-green-500/50 text-green-300"
+                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
+                                  }`}
+                                >
+                                  <span>Mục tiêu 3: Cản Hỗ trợ S2</span>
+                                  <span className="font-bold text-green-400">${taResult.support2?.toLocaleString()}</span>
+                                </button>
+                              )}
+                              {taResult.support3 > 0 && (
+                                <button
+                                  onClick={() => setCustomTp(taResult.support3)}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs border transition-all cursor-pointer ${
+                                    customTp === taResult.support3
+                                      ? "bg-green-500/10 border-green-500/50 text-green-300"
+                                      : "bg-[#0B132B] border-[#1C2541] text-brand-muted hover:border-green-500/30"
+                                  }`}
+                                >
+                                  <span>Mục tiêu 4: Cản Hỗ trợ S3 (Kỳ vọng)</span>
+                                  <span className="font-bold text-green-400">${taResult.support3?.toLocaleString()}</span>
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
 
             {/* S/R Levels */}
             <div className="flex flex-wrap items-center gap-3 md:gap-6 text-xs text-brand-muted bg-[#0B132B] rounded-lg px-4 py-2 mb-4">
