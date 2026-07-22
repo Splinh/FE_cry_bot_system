@@ -178,9 +178,8 @@ export default function OverviewPage({ onMenuToggle }: { onMenuToggle?: () => vo
             </ResponsiveContainer>
           </div>
         </div>
-
         {/* System Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-brand-surface border border-[#1C2541] rounded-xl p-5">
             <h4 className="text-sm font-bold text-white mb-3 uppercase tracking-wider">
               System
@@ -228,9 +227,76 @@ export default function OverviewPage({ onMenuToggle }: { onMenuToggle?: () => vo
               />
             </div>
           </div>
+          <div className="bg-brand-surface border border-[#1C2541] rounded-xl p-5 flex flex-col justify-between">
+            <div>
+              <h4 className="text-sm font-bold text-white mb-3 uppercase tracking-wider">
+                Fear & Greed Index
+              </h4>
+              {(() => {
+                const fng = data.fear_and_greed || { value: 50, sentiment: "Neutral" };
+                const val = fng.value;
+                const sentiment = fng.sentiment;
+                
+                const getFngColor = (v: number) => {
+                  if (v <= 25) return "text-red-500 bg-red-500/10 border-red-500/20";
+                  if (v <= 45) return "text-orange-400 bg-orange-400/10 border-orange-400/20";
+                  if (v <= 55) return "text-yellow-400 bg-yellow-400/10 border-yellow-400/20";
+                  if (v <= 75) return "text-green-400 bg-green-500/10 border-green-500/20";
+                  return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+                };
+
+                const getFngBarColor = (v: number) => {
+                  if (v <= 25) return "bg-red-500";
+                  if (v <= 45) return "bg-orange-400";
+                  if (v <= 55) return "bg-yellow-400";
+                  if (v <= 75) return "bg-green-400";
+                  return "bg-emerald-400";
+                };
+
+                const getFngSentimentVi = (s: string) => {
+                  switch (s) {
+                    case "Extreme Fear": return "Sợ Hãi Tột Độ";
+                    case "Fear": return "Sợ Hãi";
+                    case "Neutral": return "Trung Lập";
+                    case "Greed": return "Tham Lam";
+                    case "Extreme Greed": return "Tham Lam Tột Độ";
+                    default: return s;
+                  }
+                };
+
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-4xl font-black text-white">{val}</div>
+                      <span className={`text-xs font-bold px-2 py-1 rounded border ${getFngColor(val)}`}>
+                        {getFngSentimentVi(sentiment)}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="w-full bg-[#1C2541] h-2.5 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${getFngBarColor(val)}`}
+                          style={{ width: `${val}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[10px] text-brand-muted">
+                        <span>0 (Sợ hãi)</span>
+                        <span>50</span>
+                        <span>100 (Tham lam)</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="text-[10px] text-brand-muted mt-2 border-t border-[#1C2541] pt-2 text-right italic">
+              Alternative.me Live Index
+            </div>
+          </div>
 
           {/* Upcoming Macro Events */}
-          <div className="bg-brand-surface border border-[#1C2541] rounded-xl p-5 md:col-span-2">
+          <div className="bg-brand-surface border border-[#1C2541] rounded-xl p-5 md:col-span-3">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center">
                 <Calendar size={14} className="mr-2 text-blue-400" />
