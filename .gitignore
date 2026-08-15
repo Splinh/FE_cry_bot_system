@@ -4,6 +4,8 @@ dist/
 .env.local
 .env.production
 *.log
+*.tar.gz
+dist.tar.gz
 .DS_Store
 .vscode/
 .idea/
