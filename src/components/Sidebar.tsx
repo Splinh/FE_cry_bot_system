@@ -15,6 +15,7 @@ import {
   Gamepad2,
   Users,
   History,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -23,6 +24,7 @@ const allLinks = [
   { to: "/trading", icon: TrendingUp, label: "Đặt Lệnh", perm: "trading" },
   { to: "/analysis", icon: BarChart3, label: "Phân Tích", perm: "analysis" },
   { to: "/backtest", icon: History, label: "Backtest", perm: "backtest" },
+  { to: "/reports", icon: FileText, label: "Báo Cáo", perm: "overview" },
   { to: "/social", icon: Send, label: "Social Airdrop", perm: "social" },
   { to: "/wallets", icon: Wallet, label: "Wallets", perm: "wallets" },
   { to: "/gems", icon: Gem, label: "Gem Scanner", perm: "gems" },

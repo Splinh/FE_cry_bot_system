@@ -12,6 +12,7 @@ import WalletsPage from "./pages/WalletsPage";
 import SecurityPage from "./pages/SecurityPage";
 import GemPage from "./pages/GemPage";
 import GameFiPage from "./pages/GameFiPage";
+import ReportsPage from "./pages/ReportsPage";
 import LoginPage from "./pages/LoginPage";
 import UsersPage from "./pages/UsersPage";
 
@@ -48,6 +49,7 @@ function ProtectedLayout() {
           <Route path="/trading" element={<TradingPage onMenuToggle={() => setSidebarOpen(true)} />} />
           <Route path="/analysis" element={<AnalysisPage onMenuToggle={() => setSidebarOpen(true)} />} />
           <Route path="/backtest" element={<BacktestPage onMenuToggle={() => setSidebarOpen(true)} />} />
+          <Route path="/reports" element={<ReportsPage onMenuToggle={() => setSidebarOpen(true)} />} />
           <Route path="/social" element={<SocialPage onMenuToggle={() => setSidebarOpen(true)} />} />
           <Route path="/wallets" element={<WalletsPage onMenuToggle={() => setSidebarOpen(true)} />} />
           <Route path="/gems" element={<GemPage onMenuToggle={() => setSidebarOpen(true)} />} />
