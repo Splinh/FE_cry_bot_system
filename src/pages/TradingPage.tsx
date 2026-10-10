@@ -1159,6 +1159,11 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
                           x{pos.leverage}
                         </span>
                       )}
+                      {(pos.closed_pct || 0) > 0 && (
+                        <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          🎯 Đã chốt {Math.round(pos.closed_pct * 100)}% (+${(pos.realized_pnl || 0).toFixed(2)})
+                        </span>
+                      )}
                       {(pos.dca_count || 0) > 0 && (
                         <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400">
                           🔄 DCA ×{pos.dca_count}
@@ -1267,58 +1272,86 @@ export default function TradingPage({ onMenuToggle }: { onMenuToggle?: () => voi
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-brand-muted text-xs uppercase border-b border-[#1C2541]">
+                    <th className="text-left py-2 px-3">Thời Gian</th>
                     <th className="text-left py-2 px-3">Coin</th>
-                    <th className="text-left py-2 px-3">Type</th>
-                    <th className="text-left py-2 px-3">Dir</th>
-                    <th className="text-right py-2 px-3">Entry</th>
-                    <th className="text-right py-2 px-3">Close</th>
-                    <th className="text-right py-2 px-3">Size</th>
+                    <th className="text-left py-2 px-3">Loại</th>
+                    <th className="text-left py-2 px-3">Vị Thế</th>
+                    <th className="text-right py-2 px-3">Giá Vào</th>
+                    <th className="text-right py-2 px-3">Giá Đóng</th>
+                    <th className="text-right py-2 px-3">Volume</th>
                     <th className="text-right py-2 px-3">PnL</th>
-                    <th className="text-left py-2 px-3">Reason</th>
+                    <th className="text-left py-2 px-3">Lý Do / Chốt Lời</th>
                   </tr>
                 </thead>
                 <tbody>
                   {history
                     .slice()
-                    .reverse()
-                    .map((h: any, i: number) => (
-                      <tr
-                        key={i}
-                        className="border-b border-[#1C2541]/50 hover:bg-[#1C2541]/30"
-                      >
-                        <td className="py-2.5 px-3 font-bold text-white">
-                          {h.coin}
-                        </td>
-                        <td
-                          className={`py-2.5 px-3 text-xs ${h.type === "SPOT" ? "text-blue-400" : "text-orange-400"}`}
+                    .sort((a: any, b: any) => {
+                      const tA = new Date(a.close_time || a._closed_at || a.created_at || 0).getTime();
+                      const tB = new Date(b.close_time || b._closed_at || b.created_at || 0).getTime();
+                      return tB - tA;
+                    })
+                    .map((h: any, i: number) => {
+                      const isPartial = h.status?.startsWith("PARTIAL") || h.close_reason?.includes("Chốt lời");
+                      const closeTimeStr = h.close_time || h._closed_at || h.created_at;
+                      let formattedTime = "-";
+                      if (closeTimeStr) {
+                        try {
+                          const d = new Date(closeTimeStr);
+                          formattedTime = `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")} ${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}`;
+                        } catch {}
+                      }
+
+                      return (
+                        <tr
+                          key={i}
+                          className="border-b border-[#1C2541]/50 hover:bg-[#1C2541]/30"
                         >
-                          {h.type || "FUT"}{" "}
-                          {h.leverage > 1 ? `x${h.leverage}` : ""}
-                        </td>
-                        <td
-                          className={`py-2.5 px-3 font-bold ${h.direction === "LONG" ? "text-green-400" : "text-red-400"}`}
-                        >
-                          {h.direction}
-                        </td>
-                        <td className="py-2.5 px-3 text-right text-brand-muted">
-                          ${h.entry_price?.toFixed(4)}
-                        </td>
-                        <td className="py-2.5 px-3 text-right text-brand-muted">
-                          ${h.close_price?.toFixed(4)}
-                        </td>
-                        <td className="py-2.5 px-3 text-right text-white">
-                          ${h.usdt_size?.toFixed(1)}
-                        </td>
-                        <td
-                          className={`py-2.5 px-3 text-right font-bold ${h.pnl >= 0 ? "text-green-400" : "text-red-400"}`}
-                        >
-                          {h.pnl >= 0 ? "+" : ""}${h.pnl?.toFixed(2)}
-                        </td>
-                        <td className="py-2.5 px-3 text-brand-muted text-xs">
-                          {h.close_reason || "-"}
-                        </td>
-                      </tr>
-                    ))}
+                          <td className="py-2.5 px-3 text-xs text-brand-muted whitespace-nowrap">
+                            {formattedTime}
+                          </td>
+                          <td className="py-2.5 px-3 font-bold text-white">
+                            {h.coin}
+                          </td>
+                          <td
+                            className={`py-2.5 px-3 text-xs ${h.type === "SPOT" ? "text-blue-400" : "text-orange-400"}`}
+                          >
+                            {h.type || "FUT"}{" "}
+                            {h.leverage > 1 ? `x${h.leverage}` : ""}
+                          </td>
+                          <td
+                            className={`py-2.5 px-3 font-bold ${h.direction === "LONG" ? "text-green-400" : "text-red-400"}`}
+                          >
+                            {h.direction}
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-brand-muted">
+                            ${h.entry_price?.toFixed(4)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-brand-muted">
+                            ${h.close_price?.toFixed(4)}
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-white">
+                            ${h.usdt_size?.toFixed(1)}
+                          </td>
+                          <td
+                            className={`py-2.5 px-3 text-right font-bold ${h.pnl >= 0 ? "text-green-400" : "text-red-400"}`}
+                          >
+                            {h.pnl >= 0 ? "+" : ""}${h.pnl?.toFixed(2)}
+                          </td>
+                          <td className="py-2.5 px-3 text-xs">
+                            {isPartial ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                🎯 {h.close_reason || "Chốt lời"}
+                              </span>
+                            ) : (
+                              <span className="text-brand-muted">
+                                {h.close_reason || "-"}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>

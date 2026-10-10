@@ -123,30 +123,43 @@ export default function ReportsPage({
       setHistory(res.data.reports || []);
     } catch (err) {
       console.error("Failed to fetch report history:", err);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
   const fetchLatest = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/api/reports/latest`);
-      setSelectedReport(res.data);
+      if (res.data && res.data.trading) {
+        setSelectedReport(res.data);
+      }
     } catch (err) {
       console.error("Failed to fetch latest report:", err);
     }
   }, []);
 
   useEffect(() => {
-    fetchHistory();
-    fetchLatest();
+    let isMounted = true;
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        await Promise.allSettled([fetchHistory(), fetchLatest()]);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    loadData();
+    return () => {
+      isMounted = false;
+    };
   }, [fetchHistory, fetchLatest]);
 
   const handleGenerate = async () => {
     setGenerating(true);
     try {
       const res = await axios.post(`${API}/api/reports/generate`);
-      setSelectedReport(res.data);
+      if (res.data && res.data.trading) {
+        setSelectedReport(res.data);
+      }
       await fetchHistory();
     } catch (err) {
       console.error("Failed to generate report:", err);
@@ -231,6 +244,49 @@ export default function ReportsPage({
             </button>
           </div>
         </div>
+
+        {/* Loading Skeleton */}
+        {loading && !r && (
+          <div className="bg-brand-surface rounded-2xl border border-[#1C2541] p-6 space-y-4 animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#1C2541]/70" />
+              <div className="space-y-2">
+                <div className="h-4 w-36 bg-[#1C2541]/70 rounded" />
+                <div className="h-3 w-24 bg-[#1C2541]/50 rounded" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-20 bg-[#0B132B] rounded-xl border border-[#1C2541]/40" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty State Banner */}
+        {!loading && !r && (
+          <div className="bg-brand-surface rounded-2xl border border-[#1C2541] p-8 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-brand-accent/10 flex items-center justify-center mx-auto text-brand-accent">
+              <FileText size={28} />
+            </div>
+            <div>
+              <h3 className="text-white font-bold text-lg mb-1">Chưa Có Dữ Liệu Báo Cáo</h3>
+              <p className="text-brand-muted text-sm max-w-md mx-auto">
+                Hệ thống tự động theo dõi số dư, lợi nhuận các lệnh chốt lời, lịch kinh tế vĩ mô và tâm lý thị trường Fear & Greed.
+              </p>
+            </div>
+            <div>
+              <button
+                onClick={handleGenerate}
+                disabled={generating}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand-accent to-[#D49E20] text-brand-bg font-bold rounded-xl hover:shadow-lg hover:shadow-brand-accent/20 transition-all text-sm disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={generating ? "animate-spin" : ""} />
+                {generating ? "Đang tạo báo cáo..." : "Tạo Báo Cáo Đầu Tiên"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Latest Report Detail */}
         {r && (
